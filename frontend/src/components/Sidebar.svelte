@@ -14,6 +14,7 @@
   import type { FolderType } from '../lib/types';
   import type { IconName } from '../lib/icons';
   import Icon from './Icon.svelte';
+  import logo from '../assets/logo.png';
 
   interface VirtualFolder {
     id: 'starred' | 'snoozed';
@@ -84,7 +85,7 @@
 
 <aside class="sidebar">
   <div class="sb-head">
-    <div class="sb-logo"></div>
+    <img class="sb-logo" src={logo} alt="" />
     <div class="wordmark">Posthaste</div>
     <button
       class="rail-toggle"

@@ -15,6 +15,7 @@
   import AccountSetup from './components/AccountSetup.svelte';
   import Settings from './components/Settings.svelte';
   import Toast from './components/Toast.svelte';
+  import logo from './assets/logo.png';
 
   onMount(() => {
     void init();
@@ -75,7 +76,7 @@
 <div class="app" data-reading={app.readingOpen ? '1' : '0'} data-rail={app.sidebarCollapsed ? '1' : '0'}>
   <Sidebar />
   <header class="topbar">
-    <div class="crumb"><span class="mark"></span><span>{app.view.title}</span></div>
+    <div class="crumb"><img class="mark" src={logo} alt="" /><span>{app.view.title}</span></div>
     <div class="spacer"></div>
     <button class="search-trigger" title="Search mail" onclick={() => openPalette('commands')}>
       <svg class="ic"><use href="#i-search" /></svg>
