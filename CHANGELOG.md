@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ui:** Inline preview for Office and OpenDocument attachments (`.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`) in the attachment viewer. The XML is extracted with the browser's built-in ZIP/DOM APIs, so no archive or document dependency is added.
 - **ui:** The message list pages in the rest of a folder as it scrolls instead of stopping at the first 200 rows.
 - **ui:** Clicking the sidebar sync status opens a "Sync activity" panel with a per-folder breakdown of the current pass ("Inbox — 3 new", "Sent — up to date", "pass complete"), recent account state changes and errors with timestamps, and a Sync now button. The engine retains a bounded activity log so passes that ran before the UI subscribed are still shown.
+- **ui:** A contextual right-click menu replaces the webview's built-in menu: message rows and the reading pane offer reply/reply-all/forward, star, read/unread, move, archive, and delete; sidebar folders offer open, mark-all-read, and sync; compose fields offer cut/copy/paste/select-all; and the background offers copy/refresh/settings. The menu is keyboard navigable and clamps to the viewport.
+- **app:** The GTK3 shell suppresses WebKitGTK's default context menu (Back/Reload/Inspect Element) across every frame, including the sandboxed message iframe, so the UI's own contextual menu is the only one shown.
 
 ### Changed
 
@@ -50,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **ui:** WebKitGTK's native overlay scrollbars no longer show through the command palette or the contextual menu. The panic, message-list, and message-frame scrollbars are now styled so WebKit paints them in the page layer, where an overlay's `z-index` applies, instead of as a compositor overlay above all content.
 - **sync:** A pass now reconciles every folder's headers and flags before downloading any message bodies, and a body transfer that times out is logged and left pending rather than aborting the pass. Previously a slow INBOX body fetch failed the whole pass before other folders were reached, so a newly sent message never appeared in Sent even though its copy had been uploaded.
 - **sync:** Full-body fetches are now requested in smaller batches (10 rather than 25) so a slow connection is less likely to time out mid-batch.
 - **sync:** The Sent-folder copy of a delivered message is retried a few times before giving up, because slow connections drop APPENDs; the message itself is never affected.

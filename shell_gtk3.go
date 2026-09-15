@@ -249,6 +249,17 @@ func run() error {
 		},
 	})
 
+	// The UI draws its own contextual menu from the DOM contextmenu event, so
+	// WebKit's built-in menu (Back/Reload/Inspect Element) is suppressed at the
+	// widget level for every frame, including the sandboxed message iframe. The
+	// native window only exists once the app has started, so this waits for the
+	// first load to finish before walking the widget tree on the main thread.
+	window.RegisterHook(events.Linux.WindowLoadFinished, func(*application.WindowEvent) {
+		application.InvokeSync(func() {
+			suppressNativeContextMenu(window.NativeWindow())
+		})
+	})
+
 	// With minimize-to-tray enabled, closing the window hides it instead.
 	// The setting is read at close time so toggling it applies at once; the
 	// delete-event handler blocks the GTK destroy already, so cancelling the
