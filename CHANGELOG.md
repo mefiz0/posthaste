@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ui:** Clicking the sidebar sync status opens a "Sync activity" panel with a per-folder breakdown of the current pass ("Inbox — 3 new", "Sent — up to date", "pass complete"), recent account state changes and errors with timestamps, and a Sync now button. The engine retains a bounded activity log so passes that ran before the UI subscribed are still shown.
 - **ui:** A contextual right-click menu replaces the webview's built-in menu: message rows and the reading pane offer reply/reply-all/forward, star, read/unread, move, archive, and delete; sidebar folders offer open, mark-all-read, and sync; compose fields offer cut/copy/paste/select-all; and the background offers copy/refresh/settings. The menu is keyboard navigable and clamps to the viewport.
 - **app:** The GTK3 shell suppresses WebKitGTK's default context menu (Back/Reload/Inspect Element) across every frame, including the sandboxed message iframe, so the UI's own contextual menu is the only one shown.
+- **ui:** A conversation panel beside the reading pane lists every message in the open thread with sender, time, unread state, and snippet; picking one opens it in place. It appears automatically for multi-message threads, hides from its own close button or the reading-pane toolbar, and is reachable from the command palette. Thread summaries come from the already-bound `GetThread`, and the message list behaves exactly as before.
 
 ### Changed
 

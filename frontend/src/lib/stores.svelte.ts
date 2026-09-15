@@ -96,6 +96,10 @@ export const app = $state({
   selectedMessage: null as MessageDetail | null,
   messageLoading: false,
   readingOpen: false,
+  threadId: null as number | null,
+  threadMessages: [] as MessageSummary[],
+  /** null = auto: the panel opens when the conversation has several messages. */
+  threadOpen: null as boolean | null,
   viewerAttachment: null as Attachment | null,
   sidebarCollapsed: false,
   paletteOpen: false,
@@ -176,6 +180,7 @@ export function paletteContext(): PaletteContext {
     viewTitle: app.view.title,
     viewKind: app.view.kind,
     composeOpen: app.compose.open,
+    hasThread: app.threadMessages.length > 1,
   };
 }
 
@@ -335,16 +340,58 @@ export async function loadMoreMessages(): Promise<void> {
 async function loadMessage(message: MessageSummary): Promise<void> {
   app.messageLoading = true;
   try {
-    const detail = await api.getMessage(
-      accountIdForMessage(message),
-      message.id,
-    );
-    if (app.selectedMessageId === message.id) app.selectedMessage = detail;
+    const accountId = accountIdForMessage(message);
+    const detail = await api.getMessage(accountId, message.id);
+    if (app.selectedMessageId === message.id) {
+      app.selectedMessage = detail;
+      void loadThreadMessages(accountId, detail.threadId);
+    }
   } catch {
     showToast("Could not load message", "error");
   } finally {
     app.messageLoading = false;
   }
+}
+
+/**
+ * Loads the open conversation for the thread panel. Summaries already known
+ * from the list or the previous load are reused, so flag changes made in
+ * either place stay visible in both.
+ */
+async function loadThreadMessages(
+  accountId: number,
+  threadId: number,
+): Promise<void> {
+  if (app.threadId !== threadId) {
+    app.threadId = threadId;
+    app.threadMessages = [];
+    app.threadOpen = null;
+  }
+  try {
+    const messages = await api.getThread(accountId, threadId);
+    if (app.threadId !== threadId) return;
+    app.threadMessages = messages.map(
+      (message) => messageSummaryFor(message.id) ?? message,
+    );
+  } catch {
+    if (app.threadId === threadId) app.threadMessages = [];
+  }
+}
+
+/** Whether the reading pane shows the conversation panel beside the message. */
+export function threadPanelVisible(): boolean {
+  if (!app.threadMessages.length) return false;
+  return app.threadOpen ?? app.threadMessages.length > 1;
+}
+
+export function toggleThreadPanel(): void {
+  app.threadOpen = !threadPanelVisible();
+}
+
+/** Opens another message of the current conversation in the reading pane. */
+export async function selectThreadMessage(messageId: number): Promise<void> {
+  if (messageId === app.selectedMessageId) return;
+  await selectMessage(messageId, { open: true });
 }
 
 async function applyView(view: CurrentView): Promise<void> {
@@ -400,6 +447,19 @@ export async function selectAccount(accountId: number): Promise<void> {
 
 // ---------- message actions ----------
 
+/**
+ * Finds a summary for an id across the list, the open conversation, and the
+ * open detail. The conversation fallback is what lets a reply stored in
+ * another folder be opened from the thread panel.
+ */
+function messageSummaryFor(messageId: number): MessageSummary | null {
+  return (
+    app.messages.find((message) => message.id === messageId) ??
+    app.threadMessages.find((message) => message.id === messageId) ??
+    (app.selectedMessage?.id === messageId ? app.selectedMessage : null)
+  );
+}
+
 export async function selectMessage(
   messageId: number,
   options: { open?: boolean; markRead?: boolean } = {},
@@ -407,7 +467,7 @@ export async function selectMessage(
   app.selectedMessageId = messageId;
   app.viewerAttachment = null;
   if (options.open) app.readingOpen = true;
-  const summary = app.messages.find((message) => message.id === messageId);
+  const summary = messageSummaryFor(messageId);
   if (
     options.markRead !== false &&
     summary &&
@@ -447,9 +507,7 @@ export function closeReading(): void {
 export async function toggleStar(messageId?: number): Promise<void> {
   const id = messageId ?? app.selectedMessageId;
   if (id == null) return;
-  const summary =
-    app.messages.find((message) => message.id === id) ??
-    (app.selectedMessage?.id === id ? app.selectedMessage : null);
+  const summary = messageSummaryFor(id);
   if (!summary) return;
   const flagged = !summary.flags.flagged;
   summary.flags.flagged = flagged;
@@ -465,9 +523,7 @@ export async function toggleStar(messageId?: number): Promise<void> {
 export async function markUnread(messageId?: number): Promise<void> {
   const id = messageId ?? app.selectedMessageId;
   if (id == null) return;
-  const summary =
-    app.messages.find((message) => message.id === id) ??
-    (app.selectedMessage?.id === id ? app.selectedMessage : null);
+  const summary = messageSummaryFor(id);
   if (!summary) return;
   summary.flags.seen = false;
   const folder = app.folders.find(
@@ -485,9 +541,7 @@ export async function markUnread(messageId?: number): Promise<void> {
 export async function markRead(messageId?: number): Promise<void> {
   const id = messageId ?? app.selectedMessageId;
   if (id == null) return;
-  const summary =
-    app.messages.find((message) => message.id === id) ??
-    (app.selectedMessage?.id === id ? app.selectedMessage : null);
+  const summary = messageSummaryFor(id);
   if (!summary) return;
   summary.flags.seen = true;
   const folder = app.folders.find(
@@ -1082,11 +1136,15 @@ const SEND_FAILURE_TOAST = "A message failed to send — check the Outbox";
 async function reloadSelectedMessage(): Promise<void> {
   const id = app.selectedMessageId;
   if (id == null) return;
-  const summary = app.messages.find((message) => message.id === id);
+  const summary = messageSummaryFor(id);
   if (!summary) return;
+  const accountId = accountIdForMessage(summary);
   try {
-    const detail = await api.getMessage(accountIdForMessage(summary), id);
-    if (app.selectedMessageId === id) app.selectedMessage = detail;
+    const detail = await api.getMessage(accountId, id);
+    if (app.selectedMessageId === id) {
+      app.selectedMessage = detail;
+      void loadThreadMessages(accountId, detail.threadId);
+    }
   } catch {
     // Keep the stale detail on transient failures; the list is authoritative.
   }
@@ -1224,6 +1282,7 @@ export const actions: CommandActions = {
   markUnread: () => void markUnread(),
   toggleStar: () => void toggleStar(),
   moveMessage: openMovePalette,
+  toggleThread: toggleThreadPanel,
   openSettings,
   manageAccounts: openSettings,
   showShortcuts: () => {

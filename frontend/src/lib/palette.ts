@@ -9,6 +9,8 @@ export interface PaletteContext {
   viewTitle: string;
   viewKind: "folder" | "starred" | "snoozed";
   composeOpen: boolean;
+  /** The open message belongs to a conversation with more than one message. */
+  hasThread: boolean;
 }
 
 export interface CommandActions {
@@ -25,6 +27,7 @@ export interface CommandActions {
   markUnread(): void;
   toggleStar(): void;
   moveMessage(): void;
+  toggleThread(): void;
   openSettings(): void;
   manageAccounts(): void;
   showShortcuts(): void;
@@ -46,7 +49,7 @@ interface CommandSpec {
   section: string;
   icon: string;
   keyHint?: string;
-  when: "message" | "list" | "always";
+  when: "message" | "list" | "always" | "thread";
 }
 
 const COMMAND_SPECS: CommandSpec[] = [
@@ -155,6 +158,13 @@ const COMMAND_SPECS: CommandSpec[] = [
     when: "message",
   },
   {
+    id: "thread",
+    label: "Toggle conversation panel",
+    section: "Message",
+    icon: "thread",
+    when: "thread",
+  },
+  {
     id: "settings",
     label: "Open Settings",
     section: "Application",
@@ -219,6 +229,9 @@ function commandAction(spec: CommandSpec, actions: CommandActions): void {
     case "move":
       actions.moveMessage();
       break;
+    case "thread":
+      actions.toggleThread();
+      break;
     case "settings":
       actions.openSettings();
       break;
@@ -239,9 +252,18 @@ export function buildCommands(actions: CommandActions): Command[] {
     section: spec.section,
     icon: spec.icon,
     keyHint: spec.keyHint,
-    available: (context: PaletteContext) =>
-      spec.when === "always" ||
-      (spec.when === "message" ? context.hasSelection : !context.hasSelection),
+    available: (context: PaletteContext) => {
+      switch (spec.when) {
+        case "always":
+          return true;
+        case "message":
+          return context.hasSelection;
+        case "thread":
+          return context.hasThread;
+        default:
+          return !context.hasSelection;
+      }
+    },
     run: () => commandAction(spec, actions),
   }));
 }

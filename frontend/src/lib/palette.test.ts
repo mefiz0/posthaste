@@ -14,12 +14,18 @@ const baseContext: PaletteContext = {
   viewTitle: "Inbox",
   viewKind: "folder",
   composeOpen: false,
+  hasThread: false,
 };
 
 const messageContext: PaletteContext = {
   ...baseContext,
   hasSelection: true,
   readingOpen: true,
+};
+
+const threadContext: PaletteContext = {
+  ...messageContext,
+  hasThread: true,
 };
 
 const noopActions: CommandActions = {
@@ -36,6 +42,7 @@ const noopActions: CommandActions = {
   markUnread: () => {},
   toggleStar: () => {},
   moveMessage: () => {},
+  toggleThread: () => {},
   openSettings: () => {},
   manageAccounts: () => {},
   showShortcuts: () => {},
@@ -110,6 +117,16 @@ describe("queryCommands", () => {
       "accounts",
       "shortcuts",
     ]);
+  });
+
+  it("offers the conversation toggle only for multi-message threads", () => {
+    const ids = queryCommands("", threadContext, commands).map(
+      (command) => command.id,
+    );
+    expect(ids).toContain("thread");
+    expect(
+      queryCommands("", messageContext, commands).map((c) => c.id),
+    ).not.toContain("thread");
   });
 
   it("filters and ranks by query", () => {

@@ -1,9 +1,9 @@
 import type { FolderType } from "./types";
 
 /**
- * Icon sprite, kept verbatim from mockup/index.html. App.svelte renders
- * SPRITE_SVG once; components reference symbols through <Icon name="…" />
- * (a plain <use href="#i-…" />).
+ * Icon sprite carried over from mockup/index.html, with additions appended as
+ * the UI grows. App.svelte renders SPRITE_SVG once; components reference
+ * symbols through <Icon name="…" /> (a plain <use href="#i-…" />).
  */
 export const ICON_NAMES = [
   "inbox",
@@ -33,6 +33,7 @@ export const ICON_NAMES = [
   "user",
   "x",
   "download",
+  "thread",
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -73,6 +74,8 @@ const SYMBOL_PATHS: Record<IconName, string> = {
   x: '<path d="M4 4l8 8M12 4l-8 8"/>',
   download:
     '<path d="M8 2.5v7.5"/><path d="M5 7.5l3 3 3-3"/><path d="M3 13h10"/>',
+  thread:
+    '<path d="M2 3.2h12v7.3H7.6l-3.2 3v-3H2z"/><path d="M4.6 5.9h6.8M4.6 8.3h4.4"/>',
 };
 
 export const SPRITE_SVG = `<svg width="0" height="0" style="position:absolute" aria-hidden="true">${ICON_NAMES.map(
