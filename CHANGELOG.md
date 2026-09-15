@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **send:** Outbox rows now record composed attachments as `{hash, name}` objects so the original file names reach the sent MIME; older rows storing bare hash arrays still send unchanged.
 - **build:** `task generate` now passes the GTK3 tag to the bindings generator as a proper `-tags` build flag.
 - **build:** `frontend/dist/index.html` is no longer gitignored so a fresh clone can build the app shell before the first frontend build; the rest of `frontend/dist` stays ignored.
+- **ui:** The real Posthaste logo replaces the placeholder marks: the icon now brands the sidebar header, the topbar, the window and tray icons, and the page favicon.
 
 ### Fixed
 
