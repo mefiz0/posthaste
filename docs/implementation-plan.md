@@ -113,11 +113,11 @@
 ## Phase 6 — Reliability & Observability
 
 - [x] Unify the backoff/retry configuration across sync, send, and account-failure paths.
-- [ ] Complete send retry states and failure UX (Retry, Edit and resend).
-- [ ] Implement opt-in crash reporting with strict capture-time scrubbing.
+- [x] Complete send retry states and failure UX (Retry, Edit and resend).
+- [x] Implement opt-in crash reporting with strict capture-time scrubbing.
 - [x] Implement structured local logging with rotation, size caps, and the same scrubbing rules.
 - [x] Implement account-level failure attribution in the UI.
-- [ ] Add migration tests over fixture databases representing each prior schema version.
+- [x] Add migration tests over fixture databases representing each prior schema version.
 
 **Exit:** failures are predictable, attributable, and never lose user work; logs and reports never leak message content.
 

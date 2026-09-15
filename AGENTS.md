@@ -78,6 +78,7 @@ internal/
   sync/                     per-account sync worker, IDLE/poll, offline queue, conflict resolution
   send/                     send-state machine + queue worker over go-mail, raw MIME builder
   logging/                  slog setup, rotation, scrubbing handler
+  crashreport/              top-level panic capture: scrubbed local crash reports (opt-in)
   app/                      account registry + manager (per-account worker supervision), Wails
                             services (bindings) + event emission; bridges core engine ↔ UI
 frontend/

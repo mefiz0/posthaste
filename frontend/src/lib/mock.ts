@@ -13,6 +13,8 @@ import type {
   MessageSummary,
   MessageView,
   OAuthResult,
+  OutboxDraft,
+  OutboxItem,
   PickedFile,
   SearchFilter,
   ServerConfig,
@@ -151,6 +153,7 @@ class MockBackend implements Backend {
     notificationsEnabled: true,
     minimizeToTray: false,
     verboseLogging: false,
+    crashReportingEnabled: false,
     attachmentEagerThresholdBytes: 1 * MB,
     keymap: {},
   };
@@ -165,6 +168,8 @@ class MockBackend implements Backend {
   /** Pending mock OAuth flows by state id, so cancel can resolve them. */
   private oauthWaiters = new Map<string, (result: OAuthResult) => void>();
   private inlineImages = new Map<string, string>();
+  /** Failed and pending sends shown by the outbox view. */
+  private outbox: OutboxItem[] = [];
 
   constructor() {
     this.accounts.push({
@@ -190,6 +195,20 @@ class MockBackend implements Backend {
     );
     this.inlineImages.set("chart@example.com", chartDataUrl());
     this.messages = this.seedMessages(chart);
+    // One sample failed send so the outbox view is reachable in plain-browser
+    // development without a real SMTP server.
+    this.outbox = [
+      {
+        id: "mock-outbox-failed",
+        accountId: 1,
+        to: "Dana Whitfield <dana@example.com>",
+        subject: "Re: Q3 roadmap",
+        state: "failed",
+        attempts: 10,
+        error: "smtp 550 5.1.1: recipient address rejected",
+        createdIso: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
     this.refreshCounts();
   }
 
@@ -1209,6 +1228,52 @@ class MockBackend implements Backend {
       state: "sent",
     });
     return { queued: true };
+  }
+
+  // ---------- outbox ----------
+
+  async listOutbox(accountId: number | null): Promise<OutboxItem[]> {
+    await this.latency();
+    return this.outbox
+      .filter((item) => accountId == null || item.accountId === accountId)
+      .map((item) => ({ ...item }));
+  }
+
+  async getOutboxDraft(
+    accountId: number,
+    outboxId: string,
+  ): Promise<OutboxDraft> {
+    await this.latency();
+    const item = this.outbox.find((candidate) => candidate.id === outboxId);
+    if (!item) throw new Error("mock: outbox item not found");
+    return {
+      draft: {
+        draftId: item.id,
+        accountId,
+        toAddresses: [item.to],
+        ccAddresses: [],
+        bccAddresses: [],
+        subject: item.subject,
+        bodyText: "",
+      },
+      attachmentNames: [],
+    };
+  }
+
+  async retrySend(_accountId: number, outboxId: string): Promise<void> {
+    await this.latency();
+    const item = this.outbox.find((candidate) => candidate.id === outboxId);
+    if (item) {
+      item.state = "queued";
+      item.error = undefined;
+      item.attempts = 0;
+      item.nextAttemptIso = new Date().toISOString();
+    }
+  }
+
+  async discardOutbox(_accountId: number, outboxId: string): Promise<void> {
+    await this.latency();
+    this.outbox = this.outbox.filter((item) => item.id !== outboxId);
   }
 
   // ---------- threads ----------

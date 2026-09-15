@@ -133,6 +133,16 @@
         <input type="checkbox" bind:checked={draft.verboseLogging} aria-label="Enable verbose logging" />
       </div>
       <div class="switchrow">
+        <span class="grow">Crash reporting
+          <span class="note">
+            Off by default and separate from telemetry. When on, a crash writes a local report containing only the
+            panic message and stack trace, your OS and architecture, and the app version. Message bodies, subjects,
+            addresses, attachment names, and credentials never leave the device.
+          </span>
+        </span>
+        <input type="checkbox" bind:checked={draft.crashReportingEnabled} aria-label="Enable crash reporting" />
+      </div>
+      <div class="switchrow">
         <span class="grow">Eagerly fetch attachments smaller than (MB)
           <span class="note">Larger attachments download on first open to save bandwidth and disk.</span>
         </span>

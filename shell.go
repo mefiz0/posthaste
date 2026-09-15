@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,9 +19,14 @@ import (
 
 	"github.com/mefiz0/posthaste/internal/app"
 	"github.com/mefiz0/posthaste/internal/auth"
+	"github.com/mefiz0/posthaste/internal/crashreport"
 	"github.com/mefiz0/posthaste/internal/logging"
 	"github.com/mefiz0/posthaste/internal/settings"
 )
+
+// appVersion is recorded in crash reports and shown to the user. It can be
+// overridden at build time with -ldflags "-X main.appVersion=…".
+var appVersion = "0.1.0"
 
 // The webview is served from the Vite build output. A minimal frontend/dist
 // must exist for the embed; `task build` produces the real one.
@@ -77,6 +83,7 @@ type shellState struct {
 	mu              sync.Mutex
 	unreadByAccount map[int64]int
 	minimizeToTray  bool
+	crashEnabled    atomic.Bool
 }
 
 func (s *shellState) setMinimizeToTray(enabled bool) {
@@ -155,6 +162,19 @@ func run() error {
 		unreadByAccount: make(map[int64]int),
 		minimizeToTray:  cfg.MinimizeToTray,
 	}
+	state.crashEnabled.Store(cfg.CrashReportingEnabled)
+
+	// Crash reporting is captured at the process boundary, before Wails starts
+	// any goroutine. The handler is installed whether or not the user opted
+	// in: a panic is always logged, scrubbed, but a report is only persisted
+	// once the opt-in setting is on.
+	crashes := crashreport.Install(crashreport.Options{
+		Enabled: state.crashEnabled.Load,
+		Dir:     filepath.Join(paths.StateDir, "crash-reports"),
+		Version: appVersion,
+		Logger:  logger,
+	})
+	defer crashes.Handle()
 
 	// The notifications service is registered with the application below and
 	// its lifecycle is Wails-managed; the adapter only calls into it.
@@ -193,6 +213,7 @@ func run() error {
 		},
 		OnSettingsChanged: func(updated settings.Settings) {
 			state.setMinimizeToTray(updated.MinimizeToTray)
+			state.crashEnabled.Store(updated.CrashReportingEnabled)
 			if instance := state.app.Load(); instance != nil {
 				applyTraySetting(instance, state, updated.MinimizeToTray)
 			}

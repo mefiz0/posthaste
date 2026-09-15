@@ -14,6 +14,7 @@
   import ContextMenu from './components/ContextMenu.svelte';
   import AttachmentViewer from './components/AttachmentViewer.svelte';
   import SyncPanel from './components/SyncPanel.svelte';
+  import Outbox from './components/Outbox.svelte';
   import AccountSetup from './components/AccountSetup.svelte';
   import Settings from './components/Settings.svelte';
   import Toast from './components/Toast.svelte';
@@ -50,6 +51,7 @@
     if (app.settingsKeyListening) return 'capture';
     if (app.viewerAttachment) return 'viewer';
     if (app.syncPanelOpen) return 'sync';
+    if (app.outboxOpen) return 'sync';
     if (app.shortcutsOpen) return 'shortcuts';
     if (app.settingsOpen) return 'settings';
     if (app.accountSetupOpen) return 'setup';
@@ -144,6 +146,9 @@
 {/if}
 {#if app.syncPanelOpen}
   <SyncPanel />
+{/if}
+{#if app.outboxOpen}
+  <Outbox />
 {/if}
 {#if app.accountSetupOpen}
   <AccountSetup />

@@ -32,6 +32,7 @@
   let subject = $state('');
   let body = $state('');
   let attachments = $state<PickedFile[]>([]);
+  let keptAttachments = $state<string[]>([]);
   let picking = $state(false);
   let fromAccountId = $state<number | null>(null);
   let showCc = $state(false);
@@ -52,6 +53,22 @@
     const token = app.compose.token;
     untrack(() => {
       if (!token || !app.compose.open) return;
+      const seed = app.compose.prefill;
+      if (seed) {
+        toChips = seed.toAddresses.map(splitAddress);
+        ccChips = seed.ccAddresses.map(splitAddress);
+        toText = '';
+        ccText = '';
+        showCc = ccChips.length > 0;
+        subject = seed.subject;
+        body = seed.bodyText;
+        attachments = [];
+        keptAttachments = app.compose.keptAttachmentNames;
+        fromAccountId = seed.accountId ?? defaultAccount()?.id ?? null;
+        suggestions = [];
+        suggestionTarget = null;
+        return;
+      }
       const current = app.selectedMessage;
       const prefill =
         mode === 'new' || !current
@@ -65,6 +82,7 @@
       subject = prefill.subject;
       body = prefill.bodyText;
       attachments = [];
+      keptAttachments = [];
       fromAccountId = current
         ? app.accounts.find((account) => account.id === accountIdOf(current))?.id ?? defaultAccount()?.id ?? null
         : defaultAccount()?.id ?? null;
@@ -457,8 +475,13 @@
       ></textarea>
     </div>
 
-    {#if attachments.length}
+    {#if keptAttachments.length || attachments.length}
       <div class="attach-row" style="padding:0 15px 8px">
+        {#each keptAttachments as name (name)}
+          <span class="chip" title="Kept from the message being resent">
+            <span>{name}</span>
+          </span>
+        {/each}
         {#each attachments as file, index (file.path)}
           <span class="chip">
             <span>{file.name} · {formatBytes(file.sizeBytes)}</span>

@@ -27,6 +27,8 @@ import type {
   MessageDetail,
   MessageFilter,
   MessageSummary,
+  OutboxDraft,
+  OutboxItem,
   SyncStateKind,
 } from "./types";
 
@@ -62,6 +64,10 @@ interface ComposeState {
   dirty: boolean;
   saving: boolean;
   confirmingClose: boolean;
+  /** Seed for a resent outbox message; null for reply/forward/new compose. */
+  prefill: DraftInput | null;
+  /** File names from the outbox seed's attachments, shown read-only. */
+  keptAttachmentNames: string[];
 }
 
 const freshCompose = (): ComposeState => ({
@@ -72,6 +78,8 @@ const freshCompose = (): ComposeState => ({
   dirty: false,
   saving: false,
   confirmingClose: false,
+  prefill: null,
+  keptAttachmentNames: [],
 });
 
 /**
@@ -109,6 +117,9 @@ export const app = $state({
   settingsKeyListening: null as string | null,
   accountSetupOpen: false,
   syncPanelOpen: false,
+  outboxOpen: false,
+  outbox: [] as OutboxItem[],
+  outboxLoading: false,
   compose: freshCompose(),
   toasts: [] as ToastItem[],
   syncLog: [] as SyncLogEntry[],
@@ -989,12 +1000,18 @@ export function registerComposeHandlers(handlers: {
   };
 }
 
-export function openCompose(mode: ComposeMode = "new"): void {
+export function openCompose(
+  mode: ComposeMode = "new",
+  seed?: OutboxDraft,
+): void {
   app.compose = {
     ...freshCompose(),
     open: true,
     mode,
     token: app.compose.token + 1,
+    draftId: seed?.draft.draftId ?? null,
+    prefill: seed?.draft ?? null,
+    keptAttachmentNames: seed?.attachmentNames ?? [],
   };
   app.paletteOpen = false;
 }
@@ -1066,6 +1083,66 @@ export async function sendCompose(draft: DraftInput): Promise<void> {
   } catch {
     setComposeSaving(false);
     showToast("Message not sent — it stays queued", "error");
+  }
+}
+
+// ---------- outbox ----------
+
+/** Number of messages that exhausted automatic retries or were rejected. */
+export function failedSendCount(): number {
+  return app.outbox.filter((item) => item.state === "failed").length;
+}
+
+export function openOutbox(): void {
+  app.outboxOpen = true;
+  void refreshOutbox();
+}
+
+export function closeOutbox(): void {
+  app.outboxOpen = false;
+}
+
+export async function refreshOutbox(): Promise<void> {
+  app.outboxLoading = true;
+  try {
+    app.outbox = await api.listOutbox(null);
+  } catch {
+    showToast("Could not load the outbox", "error");
+  } finally {
+    app.outboxLoading = false;
+  }
+}
+
+/** Puts a failed message back on the queue with a fresh retry budget. */
+export async function retryOutbox(item: OutboxItem): Promise<void> {
+  try {
+    await api.retrySend(item.accountId, item.id);
+    showToast("Retrying the message");
+    await refreshOutbox();
+  } catch {
+    showToast("Could not retry the message", "error");
+  }
+}
+
+/** Reopens a failed message in the compose drawer for editing and resending. */
+export async function editOutbox(item: OutboxItem): Promise<void> {
+  try {
+    const seed = await api.getOutboxDraft(item.accountId, item.id);
+    app.outboxOpen = false;
+    openCompose("new", seed);
+  } catch {
+    showToast("Could not open the message", "error");
+  }
+}
+
+/** Drops a failed or pending outgoing message the user no longer wants. */
+export async function discardOutbox(item: OutboxItem): Promise<void> {
+  try {
+    await api.discardOutbox(item.accountId, item.id);
+    showToast("Message discarded");
+    await refreshOutbox();
+  } catch {
+    showToast("Could not discard the message", "error");
   }
 }
 
@@ -1240,8 +1317,12 @@ function handleEvent(event: BackendEvent): void {
       break;
     }
     case "send-state":
-      if (event.state === "failed")
+      if (event.state === "failed") {
         showToast("A message failed to send — it stays in the outbox", "error");
+        void refreshOutbox();
+      } else if (event.state === "sent" || event.state === "queued") {
+        if (app.outboxOpen) void refreshOutbox();
+      }
       break;
     case "toast":
       if (event.message !== SEND_FAILURE_TOAST)
@@ -1285,6 +1366,7 @@ export const actions: CommandActions = {
   toggleThread: toggleThreadPanel,
   openSettings,
   manageAccounts: openSettings,
+  openOutbox,
   showShortcuts: () => {
     app.shortcutsOpen = true;
   },
@@ -1434,6 +1516,8 @@ export async function init(): Promise<void> {
   // Pull activity the engine retained from passes that ran before this
   // webview subscribed.
   void refreshSyncActivity();
+  // Surface any failed sends already sitting in the outbox on startup.
+  void refreshOutbox();
   // A fresh install has no accounts, so the three-pane shell would sit empty
   // with no way forward. Open the setup flow so the first thing shown is how
   // to connect a mailbox.

@@ -91,7 +91,7 @@ func (s *ComposeService) SaveDraft(ctx context.Context, draft DraftInput) (Draft
 		return DraftResult{}, err
 	}
 
-	if s.manager.attachBlobs != nil {
+	if s.manager.attachBlobs != nil && len(draft.Attachments) > 0 {
 		refs, err := ingestComposeAttachments(ctx, draft.Attachments, s.manager.attachBlobs)
 		if err != nil {
 			return DraftResult{}, err
@@ -141,28 +141,142 @@ func (s *ComposeService) DeleteDraft(ctx context.Context, accountID int64, draft
 }
 
 // GetOutbox lists the outgoing messages worth showing in the outbox view:
-// failed deliveries and pending or retrying sends.
+// failed deliveries and pending or retrying sends. An accountID of zero merges
+// every account, matching the unified-inbox convention; results put failures
+// first and then go oldest-first.
 func (s *ComposeService) GetOutbox(ctx context.Context, accountID int64) ([]OutboxItem, error) {
+	runtimes, err := mailServiceRuntimes(s.manager, accountID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OutboxItem, 0)
+	for _, rt := range runtimes {
+		failed, err := rt.store.ListOutbox(ctx, store.SendFailed)
+		if err != nil {
+			return nil, err
+		}
+		queued, err := rt.store.ListOutbox(ctx, store.SendQueued)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range failed {
+			out = append(out, outboxItemFor(rt, row))
+		}
+		for _, row := range queued {
+			out = append(out, outboxItemFor(rt, row))
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if (out[i].State == string(store.SendFailed)) != (out[j].State == string(store.SendFailed)) {
+			return out[i].State == string(store.SendFailed)
+		}
+		return out[i].CreatedISO < out[j].CreatedISO
+	})
+	return out, nil
+}
+
+// GetOutboxDraft returns the editable content of an outbox row so the compose
+// drawer can reopen a failed send for editing. The attachment names are
+// display-only: the bytes stay in the blob store and the row keeps its
+// references, so a resend after editing still carries them.
+func (s *ComposeService) GetOutboxDraft(ctx context.Context, accountID int64, outboxID string) (OutboxDraft, error) {
 	rt, err := s.manager.Runtime(accountID)
 	if err != nil {
-		return nil, err
+		return OutboxDraft{}, err
 	}
-	failed, err := rt.store.ListOutbox(ctx, store.SendFailed)
+	row, err := rt.store.OutboxByID(ctx, outboxID)
 	if err != nil {
-		return nil, err
+		return OutboxDraft{}, err
 	}
-	queued, err := rt.store.ListOutbox(ctx, store.SendQueued)
+	refs, err := send.ParseAttachments(row.AttachmentHashes)
 	if err != nil {
-		return nil, err
+		return OutboxDraft{}, err
 	}
-	out := make([]OutboxItem, 0, len(failed)+len(queued))
-	for _, row := range failed {
-		out = append(out, outboxItemFor(rt, row))
+	names := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		names = append(names, ref.Name)
 	}
-	for _, row := range queued {
-		out = append(out, outboxItemFor(rt, row))
+	return OutboxDraft{
+		Draft: DraftInput{
+			DraftID:      row.ID,
+			AccountID:    rt.ID(),
+			ToAddresses:  addressValues(row.ToAddresses),
+			CCAddresses:  addressValues(row.CCAddresses),
+			BCCAddresses: addressValues(row.BCCAddresses),
+			Subject:      row.Subject,
+			BodyText:     row.BodyText,
+		},
+		AttachmentNames: names,
+	}, nil
+}
+
+// RetrySend puts a failed message back on the send queue. It resets the retry
+// budget so the user's explicit retry gets the full schedule again, and wakes
+// the send worker at once.
+func (s *ComposeService) RetrySend(ctx context.Context, accountID int64, outboxID string) error {
+	rt, err := s.manager.Runtime(accountID)
+	if err != nil {
+		return err
 	}
-	return out, nil
+	row, err := rt.store.OutboxByID(ctx, outboxID)
+	if err != nil {
+		return err
+	}
+	if row.State != store.SendFailed {
+		return fmt.Errorf("app: message %s is not in a failed state", outboxID)
+	}
+	if err := send.Enqueue(ctx, rt.store, s.manager.now(), row); err != nil {
+		return err
+	}
+	rt.triggerSend()
+	s.manager.Emit(EventSendState, SendStateEvent{
+		Type:      EventSendState,
+		AccountID: rt.ID(),
+		DraftID:   row.ID,
+		State:     string(store.SendQueued),
+	})
+	return nil
+}
+
+// DiscardOutbox removes a failed or queued outgoing message the user no longer
+// wants to send, so composed work is never silently kept or lost.
+func (s *ComposeService) DiscardOutbox(ctx context.Context, accountID int64, outboxID string) error {
+	rt, err := s.manager.Runtime(accountID)
+	if err != nil {
+		return err
+	}
+	row, err := rt.store.OutboxByID(ctx, outboxID)
+	if err != nil {
+		return err
+	}
+	if row.State == store.SendSending {
+		return fmt.Errorf("app: message %s is being delivered", outboxID)
+	}
+	if err := rt.store.DeleteOutbox(ctx, outboxID); err != nil {
+		return err
+	}
+	s.manager.Emit(EventSendState, SendStateEvent{
+		Type:      EventSendState,
+		AccountID: rt.ID(),
+		DraftID:   outboxID,
+		State:     "discarded",
+	})
+	return nil
+}
+
+// addressValues splits a stored address column into the individual address
+// strings the compose drawer edits. A malformed column yields nil rather than
+// an error: the message is already stored, and the drawer should still open.
+func addressValues(column string) []string {
+	parsed, err := send.ParseAddresses(column)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(parsed))
+	for _, addr := range parsed {
+		out = append(out, addr.String())
+	}
+	return out
 }
 
 // resolveDraft maps a compose request onto the account runtime and the outbox
@@ -366,7 +480,7 @@ func validateRecipients(row store.OutboxMessage) error {
 
 // outboxItemFor maps an outbox row onto the bridge shape.
 func outboxItemFor(rt *accountRuntime, row store.OutboxMessage) OutboxItem {
-	return OutboxItem{
+	item := OutboxItem{
 		OutboxID:   row.ID,
 		AccountID:  rt.ID(),
 		To:         row.ToAddresses,
@@ -376,4 +490,8 @@ func outboxItemFor(rt *accountRuntime, row store.OutboxMessage) OutboxItem {
 		Error:      row.LastError,
 		CreatedISO: rfc3339(row.CreatedAt),
 	}
+	if row.State == store.SendQueued && !row.NextAttemptAt.IsZero() {
+		item.NextAttemptISO = rfc3339(row.NextAttemptAt)
+	}
+	return item
 }

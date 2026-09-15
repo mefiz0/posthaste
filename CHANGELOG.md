@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **app:** An outbox view listing failed and pending outgoing messages, reachable from the sidebar when a send has failed and from the command palette. Each failed message offers Retry, Edit and resend, and Discard; editing reopens it in the compose drawer with its original attachments kept. Retrying resets the retry budget and wakes the send worker immediately.
+- **app:** Opt-in crash reporting, off by default and separate from telemetry: a top-level panic handler captures the panic value and goroutine stack, scrubs them at capture with the same rules as the local log, and — only when the setting is on — writes a local report containing just the panic, stack, OS, architecture, and app version. No message content is ever collected, and the Settings UI describes the report before the user enables it.
 - **core:** The complete framework-agnostic mail engine under `internal/`: per-account SQLite stores with embedded goose migrations and FTS5, MIME parsing and body extraction, allowlist HTML sanitization, JWZ-style threading with late-ancestor merging, a content-addressed blob store for attachments and raw messages, the search query parser, a shared retry/backoff policy, scrub-at-capture structured logging with rotation, and XDG-based path/settings handling.
 - **sync:** Per-account sync worker: IMAP IDLE with polling fallback, initial and incremental folder/message sync, body and attachment ingest (eager under a configurable threshold, lazy above it), contact derivation, thread assignment and merge at ingest, UIDVALIDITY reset handling, server-wins flag reconciliation, and the durable offline action queue replayed in order on reconnect with conflict drops surfaced as notices.
 - **send:** Send pipeline with persisted draft→queued→sending→sent/failed states, automatic retry on the shared backoff policy (~10 attempts), immediate failure on permanent SMTP rejections, address-scrubbed error reporting, and a Sent-folder copy after successful delivery.
@@ -60,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **store:** Messages that predate the FTS5 index are now backfilled when an account database is upgraded, so search keeps covering existing mail instead of returning nothing for older messages. Migration tests exercise an upgrade from every prior schema version and assert both data preservation and the search backfill.
 - **ui:** WebKitGTK's native overlay scrollbars no longer show through the command palette or the contextual menu. The panic, message-list, and message-frame scrollbars are now styled so WebKit paints them in the page layer, where an overlay's `z-index` applies, instead of as a compositor overlay above all content.
 - **sync:** A pass now reconciles every folder's headers and flags before downloading any message bodies, and a body transfer that times out is logged and left pending rather than aborting the pass. Previously a slow INBOX body fetch failed the whole pass before other folders were reached, so a newly sent message never appeared in Sent even though its copy had been uploaded.
 - **sync:** Full-body fetches are now requested in smaller batches (10 rather than 25) so a slow connection is less likely to time out mid-batch.

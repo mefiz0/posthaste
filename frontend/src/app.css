@@ -468,6 +468,24 @@ kbd {
   color: var(--text);
   background: var(--elev);
 }
+.sb-outbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--danger);
+  text-align: left;
+}
+.sb-outbox:hover {
+  background: var(--elev);
+  color: var(--danger);
+}
+.sb-outbox .ic {
+  flex: 0 0 auto;
+}
 @keyframes sb-pulse {
   0%,
   100% {
@@ -2204,6 +2222,69 @@ a.ext-link:hover {
   padding: 20px 16px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.outbox-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.outbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.outbox-item:last-child {
+  border-bottom: none;
+}
+.outbox-main {
+  flex: 1;
+  min-width: 0;
+}
+.outbox-subject {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.outbox-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.outbox-meta .outbox-to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+.outbox-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--danger);
+}
+.outbox-pending {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--accent);
+}
+.outbox-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.outbox-actions .cbtn {
+  font-size: 12px;
+  padding: 4px 9px;
 }
 
 /* ---------- Responsive ---------- */

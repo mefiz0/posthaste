@@ -11,6 +11,8 @@ import type {
   MessageSummary,
   MessageView,
   OAuthResult,
+  OutboxDraft,
+  OutboxItem,
   PickedFile,
   SearchFilter,
   SyncActivityEntry,
@@ -83,6 +85,14 @@ export interface Backend {
   pickAttachments(): Promise<PickedFile[]>;
   saveDraft(draft: DraftInput): Promise<{ id: string }>;
   sendDraft(draft: DraftInput): Promise<{ queued: boolean }>;
+  /** Failed and pending outgoing messages; accountId null merges all accounts. */
+  listOutbox(accountId: number | null): Promise<OutboxItem[]>;
+  /** Loads a failed send for editing and resending. */
+  getOutboxDraft(accountId: number, outboxId: string): Promise<OutboxDraft>;
+  /** Puts a failed message back on the send queue with a fresh retry budget. */
+  retrySend(accountId: number, outboxId: string): Promise<void>;
+  /** Discards a failed or pending outgoing message. */
+  discardOutbox(accountId: number, outboxId: string): Promise<void>;
 
   // Threads
   listThreads(accountId: number, folderId?: number): Promise<ThreadSummary[]>;

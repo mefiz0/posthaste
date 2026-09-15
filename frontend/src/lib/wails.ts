@@ -26,6 +26,8 @@ import type {
   MessageDetailInfo,
   MessageSummaryInfo,
   MessageView as MessageViewBinding,
+  OutboxDraft as OutboxDraftBinding,
+  OutboxItem as OutboxItemBinding,
   PickedFile as PickedFileBinding,
   SearchFilterInput,
   ServerConfigInfo,
@@ -47,6 +49,8 @@ import type {
   MessageSummary,
   MessageView,
   OAuthResult,
+  OutboxDraft,
+  OutboxItem,
   PickedFile,
   SearchFilter,
   SendState,
@@ -181,6 +185,40 @@ export function mapPickedFile(info: PickedFileBinding): PickedFile {
   };
 }
 
+/** Maps one outgoing message onto the outbox view shape. */
+export function mapOutboxItem(info: OutboxItemBinding): OutboxItem {
+  return {
+    id: info.id,
+    accountId: info.accountId,
+    to: info.to,
+    subject: info.subject,
+    state: asSendState(info.state),
+    attempts: info.attempts,
+    error: info.error,
+    createdIso: info.createdIso,
+    nextAttemptIso: info.nextAttemptIso,
+  };
+}
+
+/** Maps a failed send loaded for editing and resending. */
+export function mapOutboxDraft(info: OutboxDraftBinding): OutboxDraft {
+  return {
+    draft: {
+      draftId: info.draft.draftId,
+      accountId: info.draft.accountId,
+      inReplyToMessageId: info.draft.inReplyToMessageId,
+      toAddresses: asStringArray(info.draft.toAddresses),
+      ccAddresses: asStringArray(info.draft.ccAddresses),
+      bccAddresses: asStringArray(info.draft.bccAddresses),
+      subject: info.draft.subject,
+      bodyText: info.draft.bodyText,
+    },
+    attachmentNames: info.attachmentNames
+      ? asStringArray(info.attachmentNames)
+      : undefined,
+  };
+}
+
 function mapAttachment(
   info: AttachmentInfo,
 ): MessageDetail["attachments"][number] {
@@ -251,6 +289,7 @@ export function mapSettings(info: AppSettingsInfo): AppSettings {
     notificationsEnabled: info.notificationsEnabled,
     minimizeToTray: info.minimizeToTray,
     verboseLogging: info.verboseLogging,
+    crashReportingEnabled: info.crashReportingEnabled ?? false,
     attachmentEagerThresholdBytes: info.attachmentEagerThresholdBytes,
     keymap,
   };
@@ -341,6 +380,11 @@ const SEND_STATES: readonly SendState[] = [
   "sent",
   "failed",
 ];
+
+/** Narrows a raw send-state string, defaulting to the passive queued state. */
+function asSendState(value: string): SendState {
+  return SEND_STATES.find((candidate) => candidate === value) ?? "queued";
+}
 
 /**
  * Parses one bridge event into the app-side union. Returns null for payloads
@@ -657,6 +701,28 @@ export class WailsBackend implements Backend {
     return { queued: result.queued };
   }
 
+  async listOutbox(accountId: number | null): Promise<OutboxItem[]> {
+    const items = (await ComposeService.GetOutbox(accountId ?? 0)) ?? [];
+    return items.map(mapOutboxItem);
+  }
+
+  async getOutboxDraft(
+    accountId: number,
+    outboxId: string,
+  ): Promise<OutboxDraft> {
+    return mapOutboxDraft(
+      await ComposeService.GetOutboxDraft(accountId, outboxId),
+    );
+  }
+
+  async retrySend(accountId: number, outboxId: string): Promise<void> {
+    await ComposeService.RetrySend(accountId, outboxId);
+  }
+
+  async discardOutbox(accountId: number, outboxId: string): Promise<void> {
+    await ComposeService.DiscardOutbox(accountId, outboxId);
+  }
+
   // ---------- threads ----------
 
   async listThreads(
@@ -723,6 +789,7 @@ export class WailsBackend implements Backend {
       notificationsEnabled: settings.notificationsEnabled,
       minimizeToTray: settings.minimizeToTray,
       verboseLogging: settings.verboseLogging,
+      crashReportingEnabled: settings.crashReportingEnabled,
       attachmentEagerThresholdBytes: settings.attachmentEagerThresholdBytes,
       keymap: settings.keymap,
     };

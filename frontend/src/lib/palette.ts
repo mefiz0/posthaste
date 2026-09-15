@@ -30,6 +30,7 @@ export interface CommandActions {
   toggleThread(): void;
   openSettings(): void;
   manageAccounts(): void;
+  openOutbox(): void;
   showShortcuts(): void;
 }
 
@@ -179,6 +180,13 @@ const COMMAND_SPECS: CommandSpec[] = [
     when: "always",
   },
   {
+    id: "outbox",
+    label: "Open outbox",
+    section: "Application",
+    icon: "sent",
+    when: "always",
+  },
+  {
     id: "shortcuts",
     label: "Keyboard shortcuts",
     section: "Application",
@@ -237,6 +245,9 @@ function commandAction(spec: CommandSpec, actions: CommandActions): void {
       break;
     case "accounts":
       actions.manageAccounts();
+      break;
+    case "outbox":
+      actions.openOutbox();
       break;
     case "shortcuts":
       actions.showShortcuts();

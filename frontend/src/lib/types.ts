@@ -115,6 +115,27 @@ export interface DraftInput {
   attachments?: string[];
 }
 
+/** One outgoing message shown in the outbox view. */
+export interface OutboxItem {
+  id: string;
+  accountId: number;
+  to: string;
+  subject: string;
+  state: SendState;
+  attempts: number;
+  error?: string;
+  createdIso: string;
+  /** When the next automatic retry is due, absent once failed. */
+  nextAttemptIso?: string;
+}
+
+/** The editable content of a failed send, returned by getOutboxDraft. */
+export interface OutboxDraft {
+  draft: DraftInput;
+  /** File names already held in the blob store and kept on resend. */
+  attachmentNames?: string[];
+}
+
 export interface SearchFilter {
   text: string;
   from?: string;
@@ -178,6 +199,8 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   minimizeToTray: boolean;
   verboseLogging: boolean;
+  /** Opt-in crash reporting; off by default, separate from telemetry. */
+  crashReportingEnabled: boolean;
   attachmentEagerThresholdBytes: number;
   /** Action id -> replacement chord string, e.g. { archive: 'A' }. */
   keymap: Record<string, string>;

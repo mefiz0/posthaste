@@ -29,8 +29,8 @@ func (s *SettingsService) SaveSettings(ctx context.Context, info AppSettingsInfo
 }
 
 // settingsToInfo maps the engine settings onto the bridge shape. The fields
-// the bridge does not own (crash reporting opt-in, tray prompt state, the
-// default account) stay engine-side.
+// the bridge does not own (tray prompt state, the default account) stay
+// engine-side.
 func settingsToInfo(cfg settings.Settings) AppSettingsInfo {
 	keymap := make(map[string]string, len(cfg.Keymap))
 	for action, chord := range cfg.Keymap {
@@ -40,6 +40,7 @@ func settingsToInfo(cfg settings.Settings) AppSettingsInfo {
 		NotificationsEnabled:          cfg.NotificationsEnabled,
 		MinimizeToTray:                cfg.MinimizeToTray,
 		VerboseLogging:                cfg.VerboseLogging,
+		CrashReportingEnabled:         cfg.CrashReportingEnabled,
 		AttachmentEagerThresholdBytes: cfg.AttachmentEagerThresholdBytes,
 		Keymap:                        keymap,
 	}
@@ -52,6 +53,7 @@ func settingsFromInfo(current settings.Settings, info AppSettingsInfo) settings.
 	cfg.NotificationsEnabled = info.NotificationsEnabled
 	cfg.MinimizeToTray = info.MinimizeToTray
 	cfg.VerboseLogging = info.VerboseLogging
+	cfg.CrashReportingEnabled = info.CrashReportingEnabled
 	if info.AttachmentEagerThresholdBytes > 0 {
 		cfg.AttachmentEagerThresholdBytes = info.AttachmentEagerThresholdBytes
 	}

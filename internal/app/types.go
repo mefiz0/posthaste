@@ -233,8 +233,7 @@ type SendResult struct {
 }
 
 // OutboxItem describes one outgoing message shown in the failed/retrying
-// outbox view. The frontend gains this view later; the shape lives here so
-// the binding is stable.
+// outbox view.
 type OutboxItem struct {
 	ID         int64  `json:"-"`
 	OutboxID   string `json:"id"`
@@ -245,6 +244,18 @@ type OutboxItem struct {
 	Attempts   int    `json:"attempts"`
 	Error      string `json:"error,omitempty"`
 	CreatedISO string `json:"createdIso"`
+	// NextAttemptISO is when the next automatic retry is due, empty once the
+	// message has failed or is not queued.
+	NextAttemptISO string `json:"nextAttemptIso,omitempty"`
+}
+
+// OutboxDraft is the editable content of a failed send, used by the
+// "Edit and resend" action. Draft carries the fields the compose drawer can
+// change; AttachmentNames lists the files already held in the blob store so
+// the UI can show they are kept without re-picking them.
+type OutboxDraft struct {
+	Draft           DraftInput `json:"draft"`
+	AttachmentNames []string   `json:"attachmentNames,omitempty"`
 }
 
 // AppSettingsInfo mirrors the frontend AppSettings shape.
@@ -252,6 +263,7 @@ type AppSettingsInfo struct {
 	NotificationsEnabled          bool              `json:"notificationsEnabled"`
 	MinimizeToTray                bool              `json:"minimizeToTray"`
 	VerboseLogging                bool              `json:"verboseLogging"`
+	CrashReportingEnabled         bool              `json:"crashReportingEnabled"`
 	AttachmentEagerThresholdBytes int64             `json:"attachmentEagerThresholdBytes"`
 	Keymap                        map[string]string `json:"keymap"`
 }

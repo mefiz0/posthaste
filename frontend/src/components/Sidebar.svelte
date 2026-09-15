@@ -1,7 +1,9 @@
 <script lang="ts">
   import {
     app,
+    failedSendCount,
     openAccountSetup,
+    openOutbox,
     openSyncPanel,
     selectAccount,
     selectSnoozed,
@@ -176,4 +178,11 @@
       <button class="sb-retry" onclick={() => void syncAll(true)}>Retry</button>
     {/if}
   </div>
+
+  {#if failedSendCount() > 0}
+    <button class="sb-outbox" onclick={openOutbox} title="Messages that failed to send">
+      <Icon name="sent" />
+      <span>{failedSendCount()} failed to send</span>
+    </button>
+  {/if}
 </aside>

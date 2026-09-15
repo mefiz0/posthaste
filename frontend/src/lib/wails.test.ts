@@ -120,6 +120,7 @@ describe("binding -> app mappers", () => {
       notificationsEnabled: true,
       minimizeToTray: false,
       verboseLogging: false,
+      crashReportingEnabled: false,
       attachmentEagerThresholdBytes: 1048576,
       keymap: null,
     };
@@ -315,6 +316,7 @@ describe("parseBackendEvent", () => {
         notificationsEnabled: false,
         minimizeToTray: true,
         verboseLogging: false,
+        crashReportingEnabled: false,
         attachmentEagerThresholdBytes: 1,
         keymap: { archive: "Ctrl+E" },
       },
@@ -325,6 +327,7 @@ describe("parseBackendEvent", () => {
         notificationsEnabled: false,
         minimizeToTray: true,
         verboseLogging: false,
+        crashReportingEnabled: false,
         attachmentEagerThresholdBytes: 1,
         keymap: { archive: "Ctrl+E" },
       },

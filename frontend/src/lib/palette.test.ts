@@ -45,6 +45,7 @@ const noopActions: CommandActions = {
   toggleThread: () => {},
   openSettings: () => {},
   manageAccounts: () => {},
+  openOutbox: () => {},
   showShortcuts: () => {},
 };
 
@@ -97,6 +98,7 @@ describe("queryCommands", () => {
       "refresh",
       "settings",
       "accounts",
+      "outbox",
       "shortcuts",
     ]);
   });
@@ -115,6 +117,7 @@ describe("queryCommands", () => {
       "move",
       "settings",
       "accounts",
+      "outbox",
       "shortcuts",
     ]);
   });
