@@ -18,7 +18,7 @@
   --danger: #e5484d;
   --sel: rgba(227, 168, 87, 0.09);
   /* Only the sidebar is a glass surface. The window itself is transparent
-     (see the GTK3 shell) so the sidebar's backdrop can sample the desktop;
+     (see shell.go) so the sidebar's backdrop can sample the desktop;
      every other pane stays opaque and paints over the wallpaper. */
   --glass-sidebar: rgba(9, 9, 12, 0.48);
   --glass-sidebar-blur: blur(120px) saturate(1.8) brightness(0.9);

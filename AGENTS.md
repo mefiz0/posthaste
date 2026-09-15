@@ -45,22 +45,19 @@ Go 1.25+ (workspace pins 1.27.1) · Wails v3 (`v3.0.0-beta.22`, pinned exactly)
 target Linux. Do not add cross-platform branches, build tags, or CI matrixes
 unless the spec is explicitly extended.
 
-**GTK3/WebKit2GTK note:** the pinned Wails v3 defaults to GTK4 +
-`webkitgtk-6.0`, but this repo builds against **GTK3 + WebKit2GTK-4.1** using the
-`gtk3` build tag. All Go builds of the app shell must pass `-tags gtk3`
-(`manual` builds only; the core engine needs no tag). The `wails3` CLI is built
-from source with that tag by `task tools:wails` — it is intentionally **not** in
-`mise.toml`, because mise would install it without the tag and fail against
-`webkitgtk-6.0`.
+**GTK4/WebKitGTK 6.0 note:** the app shell builds against **GTK4 +
+WebKitGTK 6.0**, the pinned Wails v3 default, so plain `go build .` works and
+no build tags are involved. The system needs the `gtk4` and `webkitgtk-6.0`
+development libraries (see README for per-distro package names). The `wails3`
+CLI is built from source by `task tools:wails` — it is intentionally **not** in
+`mise.toml`, so the CLI and the shell always link the same GTK stack.
 
 ## Repository Layout
 
 ```
 main.go                     Wails app entry: application, window, services, tray, notifications
-                            (the shell lives in shell_gtk3.go behind the gtk3 tag, with a
-                            shell_nogtk.go shim so the fast suite stays display-free; the
-                            gtk3-tagged contextmenu_gtk3.go suppresses WebKitGTK's built-in
-                            context menu so the UI can draw its own)
+                            (the shell lives in shell.go; contextmenu.go suppresses
+                            WebKitGTK's built-in context menu so the UI can draw its own)
 Taskfile.yml                the single entry point for every dev/build/test/lint action
 mise.toml                   pinned toolchain (go, task, node, golangci-lint)
 .golangci.yml               Go lint config
@@ -119,14 +116,15 @@ paths.
 All commands are Task targets. Run `task --list` for the full set. The important
 ones:
 
-- `task tools` — install dev tooling (`wails3` built with `-tags gtk3`).
+- `task tools` — install dev tooling (`wails3` built from source).
 - `task deps` — `go mod download` + `npm install` in `frontend/`.
 - `task generate` — generate Wails bindings into `frontend/src/bindings`.
 - `task build` — build the frontend (`vite build`) then the app binary
-  (`go build -tags gtk3 -o bin/posthaste`). Use this to verify a full build.
-- `task dev` — frontend dev server + `go run -tags gtk3` against it.
+  (`go build -o bin/posthaste`). Use this to verify a full build.
+- `task dev` — frontend dev server + `go run` against it.
 - `task test` — `go test ./...` (core engine; no network, no display) plus
-  `npm run check` for the frontend.
+  `npm run check` for the frontend. The root package links GTK4/WebKitGTK 6.0,
+  so the test job needs those development packages installed.
 - `task test:integration` — brings up the Docker Dovecot/Postfix harness and runs
   tests tagged `integration`.
 - `task test:fuzz` — short fuzz run over MIME parsing and sanitization.

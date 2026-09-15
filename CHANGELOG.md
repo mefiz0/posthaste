@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **build:** `task generate` now passes the GTK3 tag to the bindings generator as a proper `-tags` build flag.
 - **build:** `frontend/dist/index.html` is no longer gitignored so a fresh clone can build the app shell before the first frontend build; the rest of `frontend/dist` stays ignored.
 - **ui:** The real Posthaste logo replaces the placeholder marks: the icon now brands the sidebar header, the topbar, the window and tray icons, and the page favicon.
+- **build:** The Linux shell now builds against GTK4 + WebKitGTK 6.0, Wails v3's default stack, instead of GTK3 + WebKit2GTK-4.1. The `gtk3` build tag and its tagless shim are gone, so plain `go build`/`task build` produce the real shell, the context-menu suppression was ported to the GTK4 widget and signal signatures, and the development packages named in the README and CI changed to `libgtk-4-dev` + `libwebkitgtk-6.0-dev` (or the distro equivalent).
+- **ui:** The transparent window now takes effect on GTK4, so the frosted sidebar samples the desktop again; the pinned Wails release leaves GTK4 transparency to CSS it never installs, so the shell clears the theme background itself.
 
 ### Fixed
 

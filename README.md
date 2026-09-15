@@ -35,10 +35,10 @@ telemetry of any kind — not opt-in, not anonymized, nothing.
 ## Requirements
 
 - Linux desktop (the v1 target platform).
-- GTK3 + WebKit2GTK-4.1 development packages:
-  - **Debian/Ubuntu:** `sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config`
-  - **Arch:** `sudo pacman -S --needed gtk3 webkit2gtk-4.1 base-devel`
-  - **Fedora:** `sudo dnf install gtk3-devel webkit2gtk4.1-devel gcc gcc-c++ make`
+- GTK4 + WebKitGTK 6.0 development packages:
+  - **Debian/Ubuntu:** `sudo apt install libgtk-4-dev libwebkitgtk-6.0-dev build-essential pkg-config`
+  - **Arch:** `sudo pacman -S --needed gtk4 webkitgtk-6.0 base-devel`
+  - **Fedora:** `sudo dnf install gtk4-devel webkitgtk6.0-devel gcc gcc-c++ make`
 - [Go](https://go.dev) 1.25+
 - [Node.js](https://nodejs.org) 20+
 - [Task](https://taskfile.dev) — the single entry point for every dev command
@@ -53,13 +53,13 @@ mise install
 # or install the tools by hand, then:
 
 task deps              # go mod download + npm install
-task build             # vite build + go build -tags gtk3 -> bin/posthaste
+task build             # vite build + go build -> bin/posthaste
 task dev               # frontend dev server + live Go run
 ```
 
-The app shell builds against **GTK3 + WebKit2GTK-4.1**; Go builds of the app
-always pass `-tags gtk3` (the core engine needs no tag). The `wails3` CLI is
-built from source with that tag by `task tools:wails`.
+The app shell builds against **GTK4 + WebKitGTK 6.0**, the Wails v3 default
+stack, so no build tags are involved. The `wails3` CLI is built from source by
+`task tools:wails`.
 
 ## Testing
 

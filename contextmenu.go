@@ -1,23 +1,21 @@
-//go:build gtk3
-
 package main
 
 /*
-#cgo pkg-config: gtk+-3.0 webkit2gtk-4.1
+#cgo pkg-config: gtk4 webkitgtk-6.0
 #include <gtk/gtk.h>
-#include <webkit2/webkit2.h>
+#include <webkit/webkit.h>
 
 // Returning TRUE from the WebKit context-menu signal marks it handled and
 // stops the default menu from being shown. The app renders its own menu in the
-// DOM, so the webview's native menu is never wanted.
+// DOM, so the webview's native menu is never wanted. GTK4 dropped the GdkEvent
+// parameter from this signal, so the handler takes only the menu and the hit
+// test result.
 static gboolean posthaste_suppress_context_menu(WebKitWebView *web_view,
                                                 WebKitContextMenu *context_menu,
-                                                GdkEvent *event,
                                                 WebKitHitTestResult *hit_test_result,
                                                 gpointer user_data) {
     (void)web_view;
     (void)context_menu;
-    (void)event;
     (void)hit_test_result;
     (void)user_data;
     return TRUE;
@@ -28,12 +26,10 @@ static void posthaste_guard_context_menu(GtkWidget *widget) {
         g_signal_connect(G_OBJECT(widget), "context-menu",
                          G_CALLBACK(posthaste_suppress_context_menu), NULL);
     }
-    if (GTK_IS_CONTAINER(widget)) {
-        GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
-        for (GList *item = children; item != NULL; item = item->next) {
-            posthaste_guard_context_menu(GTK_WIDGET(item->data));
-        }
-        g_list_free(children);
+    for (GtkWidget *child = gtk_widget_get_first_child(widget);
+         child != NULL;
+         child = gtk_widget_get_next_sibling(child)) {
+        posthaste_guard_context_menu(child);
     }
 }
 

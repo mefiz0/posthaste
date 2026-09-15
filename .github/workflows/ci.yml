@@ -27,6 +27,13 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # go test ./... compiles the Wails app shell in the root package, which
+      # links GTK4 + WebKitGTK 6.0 through cgo.
+      - name: Install GTK4 and WebKitGTK development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+
       - name: Run unit tests
         run: go test ./...
 
@@ -74,6 +81,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      # go test ./... compiles the Wails app shell in the root package, which
+      # links GTK4 + WebKitGTK 6.0 through cgo.
+      - name: Install GTK4 and WebKitGTK development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
 
       - name: Start mail server harness
         if: ${{ hashFiles('docker-compose.yml') != '' }}

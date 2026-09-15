@@ -6,9 +6,6 @@ version: '3'
 vars:
   APP_NAME: posthaste
   BIN_DIR: bin
-  # We build against GTK3 + WebKit2GTK-4.1 because that stack is what this
-  # project targets. Every Go build of the app shell must pass this tag.
-  GO_TAGS: gtk3
   WAILS_VERSION: v3.0.0-beta.22
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   BINDINGS_DIR: frontend/src/bindings
@@ -21,15 +18,15 @@ tasks:
   # ----- Tooling / dependencies -------------------------------------------------
 
   tools:
-    desc: Install dev tooling (wails3 CLI built with the gtk3 tag)
+    desc: Install dev tooling (wails3 CLI)
     deps: [tools:wails]
 
   tools:wails:
-    desc: Build the wails3 CLI from source against GTK3/WebKit2GTK-4.1
+    desc: Build the wails3 CLI from source
     status:
       - command -v wails3
     cmds:
-      - go install -tags {{.GO_TAGS}} github.com/wailsapp/wails/v3/cmd/wails3@{{.WAILS_VERSION}}
+      - go install github.com/wailsapp/wails/v3/cmd/wails3@{{.WAILS_VERSION}}
 
   deps:
     desc: Download Go modules and install frontend packages
@@ -57,8 +54,7 @@ tasks:
     generates:
       - '{{.BINDINGS_DIR}}/**/*'
     cmds:
-      # -f takes go build flags, so the tag needs the -tags prefix.
-      - wails3 generate bindings -clean=true -ts -i -f '-tags {{.GO_TAGS}}' -d {{.BINDINGS_DIR}}
+      - wails3 generate bindings -clean=true -ts -i -d {{.BINDINGS_DIR}}
 
   # ----- Build / run ------------------------------------------------------------
 
@@ -68,7 +64,7 @@ tasks:
     cmds:
       - task: frontend:build
       - mkdir -p {{.BIN_DIR}}
-      - go build -tags {{.GO_TAGS}} -trimpath -o {{.BIN_DIR}}/{{.APP_NAME}} .
+      - go build -trimpath -o {{.BIN_DIR}}/{{.APP_NAME}} .
 
   build:core:
     desc: Compile only the framework-agnostic core engine (no cgo, no tags)

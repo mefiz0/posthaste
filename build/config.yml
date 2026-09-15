@@ -29,7 +29,7 @@ dev_mode:
     - "*.ts"
   git_ignore: true
   executes:
-    - cmd: go build -tags gtk3 -o bin/posthaste .
+    - cmd: go build -o bin/posthaste .
       type: blocking
     - cmd: task frontend:dev
       type: background

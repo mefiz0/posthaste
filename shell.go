@@ -1,5 +1,3 @@
-//go:build gtk3
-
 package main
 
 import (
@@ -252,11 +250,15 @@ func run() error {
 	// The UI draws its own contextual menu from the DOM contextmenu event, so
 	// WebKit's built-in menu (Back/Reload/Inspect Element) is suppressed at the
 	// widget level for every frame, including the sandboxed message iframe. The
-	// native window only exists once the app has started, so this waits for the
-	// first load to finish before walking the widget tree on the main thread.
+	// window is also asked to drop its theme background here so the transparent
+	// window option has an effect on GTK4. Both need the native window, which
+	// only exists once the app has started, so they wait for the first load to
+	// finish before touching the widget tree on the main thread.
 	window.RegisterHook(events.Linux.WindowLoadFinished, func(*application.WindowEvent) {
 		application.InvokeSync(func() {
-			suppressNativeContextMenu(window.NativeWindow())
+			handle := window.NativeWindow()
+			suppressNativeContextMenu(handle)
+			makeWindowTransparent(handle)
 		})
 	})
 
