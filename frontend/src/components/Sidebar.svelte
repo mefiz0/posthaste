@@ -114,6 +114,8 @@
         class:active={app.view.kind === 'folder' && app.view.folderId === folder.id}
         class:unread-count={folder.type === 'inbox' && folder.unreadCount > 0}
         data-folder={folder.type}
+        data-context="folder"
+        data-folder-id={folder.id}
         onclick={() => void setFolderId(folder.id)}
       >
         <Icon name={folderIcon(folder.type)} />
@@ -132,6 +134,8 @@
         <button
           class="nav-item nav-sub"
           class:active={app.view.kind === 'folder' && app.view.folderId === folder.id}
+          data-context="folder"
+          data-folder-id={folder.id}
           onclick={() => void setFolderId(folder.id)}
         >
           <span class="nav-iconbox"><Icon name="folder" /></span>

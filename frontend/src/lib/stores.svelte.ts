@@ -5,6 +5,13 @@ import {
   type CommandActions,
   type PaletteContext,
 } from "./palette";
+import {
+  clampMenuPosition,
+  detectContextMenuSubject,
+  type ContextMenuItem,
+  type ContextMenuSubject,
+} from "./contextmenu";
+import { folderIcon } from "./icons";
 import type { ActionId } from "./keys";
 import type {
   Account,
@@ -103,6 +110,12 @@ export const app = $state({
   syncLog: [] as SyncLogEntry[],
   syncStates: {} as Record<number, AccountSyncState>,
   settings: null as AppSettings | null,
+  contextMenu: {
+    open: false,
+    x: 0,
+    y: 0,
+    items: [] as ContextMenuItem[],
+  },
 });
 
 // ---------- derived helpers (plain functions: reactivity flows from reads) ----------
@@ -389,13 +402,18 @@ export async function selectAccount(accountId: number): Promise<void> {
 
 export async function selectMessage(
   messageId: number,
-  options: { open?: boolean } = {},
+  options: { open?: boolean; markRead?: boolean } = {},
 ): Promise<void> {
   app.selectedMessageId = messageId;
   app.viewerAttachment = null;
   if (options.open) app.readingOpen = true;
   const summary = app.messages.find((message) => message.id === messageId);
-  if (summary && !summary.flags.seen && !summary.flags.draft) {
+  if (
+    options.markRead !== false &&
+    summary &&
+    !summary.flags.seen &&
+    !summary.flags.draft
+  ) {
     summary.flags.seen = true;
     const folder = currentFolder();
     if (folder && folder.id === summary.folderId && folder.unreadCount > 0)
@@ -460,6 +478,26 @@ export async function markUnread(messageId?: number): Promise<void> {
     await api.setFlags(accountIdForMessage(summary), id, { seen: false });
   } catch {
     summary.flags.seen = true;
+    showToast("Could not update message", "error");
+  }
+}
+
+export async function markRead(messageId?: number): Promise<void> {
+  const id = messageId ?? app.selectedMessageId;
+  if (id == null) return;
+  const summary =
+    app.messages.find((message) => message.id === id) ??
+    (app.selectedMessage?.id === id ? app.selectedMessage : null);
+  if (!summary) return;
+  summary.flags.seen = true;
+  const folder = app.folders.find(
+    (candidate) => candidate.id === summary.folderId,
+  );
+  if (folder && folder.unreadCount > 0) folder.unreadCount -= 1;
+  try {
+    await api.setFlags(accountIdForMessage(summary), id, { seen: true });
+  } catch {
+    summary.flags.seen = false;
     showToast("Could not update message", "error");
   }
 }
@@ -535,6 +573,268 @@ export async function moveToFolder(targetFolderId: number): Promise<void> {
   } catch {
     showToast("Could not move message", "error");
     await refreshMessages();
+  }
+}
+
+// ---------- contextual menu ----------
+
+/**
+ * Opens the menu for whatever the pointer landed on. Always swallows the event
+ * so the webview's own menu never appears; the shell suppresses it natively
+ * too, this keeps the browser mock and any frame-level fallback consistent.
+ */
+export function openContextMenu(event: MouseEvent): void {
+  event.preventDefault();
+  const items = contextMenuItems(detectContextMenuSubject(event.target));
+  if (!items.length) {
+    closeContextMenu();
+    return;
+  }
+  const position = clampMenuPosition(
+    event.clientX,
+    event.clientY,
+    items.length,
+  );
+  app.contextMenu = { open: true, x: position.x, y: position.y, items };
+}
+
+export function closeContextMenu(): void {
+  if (!app.contextMenu.open) return;
+  app.contextMenu = { open: false, x: 0, y: 0, items: [] };
+}
+
+function contextMenuItems(subject: ContextMenuSubject): ContextMenuItem[] {
+  switch (subject.kind) {
+    case "editing":
+      return editingMenuItems(subject.element);
+    case "message":
+      // Right-clicking a row selects it (without opening or marking it read)
+      // so the same selection-based actions serve both the row and reading pane.
+      if (app.selectedMessageId !== subject.messageId) {
+        void selectMessage(subject.messageId, { markRead: false });
+      }
+      return messageMenuItems();
+    case "reading":
+      return app.selectedMessageId == null
+        ? appMenuItems()
+        : messageMenuItems();
+    case "folder":
+      return folderMenuItems(subject.folderId);
+    case "app":
+      return appMenuItems();
+  }
+}
+
+function messageMenuItems(): ContextMenuItem[] {
+  const id = app.selectedMessageId;
+  if (id == null) return appMenuItems();
+  const summary = app.messages.find((message) => message.id === id);
+  const flagged = summary?.flags.flagged ?? false;
+  const seen = summary?.flags.seen ?? true;
+  return [
+    {
+      id: "reply",
+      label: "Reply",
+      icon: "reply",
+      hint: "R",
+      run: () => withLoadedMessage(() => openCompose("reply")),
+    },
+    {
+      id: "replyall",
+      label: "Reply all",
+      icon: "reply",
+      hint: "A",
+      run: () => withLoadedMessage(() => openCompose("replyAll")),
+    },
+    {
+      id: "forward",
+      label: "Forward",
+      icon: "forward",
+      hint: "F",
+      run: () => withLoadedMessage(() => openCompose("forward")),
+    },
+    {
+      id: "star",
+      label: flagged ? "Unstar" : "Star",
+      icon: "star",
+      hint: "S",
+      separatorBefore: true,
+      run: () => void toggleStar(id),
+    },
+    seen
+      ? {
+          id: "unread",
+          label: "Mark unread",
+          icon: "box",
+          hint: "U",
+          run: () => void markUnread(id),
+        }
+      : {
+          id: "read",
+          label: "Mark read",
+          icon: "check",
+          run: () => void markRead(id),
+        },
+    {
+      id: "move",
+      label: "Move to…",
+      icon: "move",
+      hint: "M",
+      separatorBefore: true,
+      run: openMovePalette,
+    },
+    {
+      id: "archive",
+      label: "Archive",
+      icon: "archive",
+      hint: "E",
+      run: () => void removeCurrent("archive"),
+    },
+    {
+      id: "delete",
+      label: "Delete",
+      icon: "trash",
+      hint: "#",
+      danger: true,
+      run: () => void removeCurrent("delete"),
+    },
+  ];
+}
+
+function folderMenuItems(folderId: number): ContextMenuItem[] {
+  const folder = app.folders.find((candidate) => candidate.id === folderId);
+  if (!folder) return appMenuItems();
+  return [
+    {
+      id: "open",
+      label: "Open",
+      icon: folderIcon(folder.type),
+      run: () => void setFolderId(folderId),
+    },
+    {
+      id: "markallread",
+      label: "Mark all as read",
+      icon: "checkall",
+      run: () => void markFolderRead(folderId),
+    },
+    {
+      id: "sync",
+      label: "Sync now",
+      icon: "refresh",
+      separatorBefore: true,
+      run: () => void syncAll(true),
+    },
+  ];
+}
+
+function editingMenuItems(
+  element: HTMLInputElement | HTMLTextAreaElement,
+): ContextMenuItem[] {
+  const hasSelection =
+    (element.selectionStart ?? 0) !== (element.selectionEnd ?? 0);
+  return [
+    {
+      id: "cut",
+      label: "Cut",
+      disabled: !hasSelection,
+      run: () => clipboardEdit("cut", element),
+    },
+    {
+      id: "copy",
+      label: "Copy",
+      disabled: !hasSelection,
+      run: () => clipboardEdit("copy", element),
+    },
+    {
+      id: "paste",
+      label: "Paste",
+      run: () => clipboardEdit("paste", element),
+    },
+    {
+      id: "selectall",
+      label: "Select all",
+      separatorBefore: true,
+      run: () => element.select(),
+    },
+  ];
+}
+
+function appMenuItems(): ContextMenuItem[] {
+  const selection = window.getSelection()?.toString() ?? "";
+  const items: ContextMenuItem[] = [];
+  if (selection) {
+    items.push({
+      id: "copy",
+      label: "Copy",
+      run: () => void navigator.clipboard?.writeText(selection),
+    });
+  }
+  items.push({
+    id: "refresh",
+    label: "Refresh",
+    icon: "refresh",
+    separatorBefore: items.length > 0,
+    run: () => void syncAll(true),
+  });
+  items.push({
+    id: "settings",
+    label: "Open Settings",
+    icon: "settings",
+    run: openSettings,
+  });
+  return items;
+}
+
+/**
+ * Runs an action that needs the full message detail (reply, forward). The
+ * message was already selected on right-click, so this only waits for the
+ * detail load when the click beats it.
+ */
+function withLoadedMessage(run: () => void): void {
+  const id = app.selectedMessageId;
+  if (id == null) return;
+  if (app.selectedMessage?.id === id) {
+    run();
+    return;
+  }
+  void selectMessage(id, { markRead: false }).then(() => {
+    if (app.selectedMessageId === id) run();
+  });
+}
+
+/** Applies the edit command to a focused field, inserting pasted text at the caret. */
+function clipboardEdit(
+  command: "cut" | "copy" | "paste",
+  element: HTMLInputElement | HTMLTextAreaElement,
+): void {
+  element.focus();
+  if (command !== "paste") {
+    document.execCommand(command);
+    return;
+  }
+  const clipboard = navigator.clipboard;
+  if (!clipboard?.readText) return;
+  void clipboard.readText().then((text) => {
+    const start = element.selectionStart ?? element.value.length;
+    const end = element.selectionEnd ?? start;
+    element.setRangeText(text, start, end, "end");
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+/** Marks every message in a folder read, even when it is not the active view. */
+async function markFolderRead(folderId: number): Promise<void> {
+  const accountId = accountIdForFolderId(folderId);
+  if (accountId == null) return;
+  const folder = app.folders.find((candidate) => candidate.id === folderId);
+  if (folder) folder.unreadCount = 0;
+  if (app.view.folderId === folderId) {
+    for (const message of app.messages) message.flags.seen = true;
+  }
+  try {
+    await api.markAllRead(accountId, folderId);
+  } catch {
+    await refreshFolders();
   }
 }
 

@@ -77,6 +77,11 @@ export function buildFrameDocument(
     `<style>` +
     `html,body{margin:0;padding:16px;background:#111113;color:#1c1c1e;color-scheme:dark;}` +
     `body{font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;overflow-wrap:break-word;}` +
+    // Styling the scrollbar keeps it inside the frame's layer instead of as a
+    // compositor overlay that floats above the app's menus and overlays.
+    `::-webkit-scrollbar{width:10px;height:10px;}` +
+    `::-webkit-scrollbar-track{background:transparent;}` +
+    `::-webkit-scrollbar-thumb{background:#2a2a2e;border:2px solid transparent;background-clip:padding-box;border-radius:6px;}` +
     `.mail{filter:invert(1) hue-rotate(180deg);}` +
     `.mail img{filter:invert(1) hue-rotate(180deg);max-width:100%;height:auto;}` +
     `table{max-width:100%;}` +

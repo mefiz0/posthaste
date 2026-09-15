@@ -183,6 +183,7 @@ export type OverlayContext =
   | "setup"
   | "viewer"
   | "sync"
+  | "contextMenu"
   | "capture";
 
 export interface DispatcherContext {
@@ -421,7 +422,14 @@ export function createDispatcher(
     const context = getContext();
     const chord = eventToChord(event);
 
-    if (context.overlay === "palette" || context.overlay === "capture") return;
+    // The palette, shortcuts capture, and contextual menu own their keystrokes;
+    // the menu handles arrows/Escape itself.
+    if (
+      context.overlay === "palette" ||
+      context.overlay === "capture" ||
+      context.overlay === "contextMenu"
+    )
+      return;
 
     if (context.overlay === "compose") {
       if (chord.ctrl && chord.key === "enter") {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { SPRITE_SVG } from './lib/icons';
-  import { app, init, openPalette, runKeyAction } from './lib/stores.svelte';
+  import { app, init, openContextMenu, openPalette, runKeyAction } from './lib/stores.svelte';
   import { createDispatcher, formatChordParts, isTypingTarget, type ActionId, type DispatcherContext } from './lib/keys';
   import Sidebar from './components/Sidebar.svelte';
   import MessageList from './components/MessageList.svelte';
@@ -9,6 +9,7 @@
   import CommandPalette from './components/CommandPalette.svelte';
   import ComposeDrawer from './components/ComposeDrawer.svelte';
   import ShortcutsOverlay from './components/ShortcutsOverlay.svelte';
+  import ContextMenu from './components/ContextMenu.svelte';
   import AttachmentViewer from './components/AttachmentViewer.svelte';
   import SyncPanel from './components/SyncPanel.svelte';
   import AccountSetup from './components/AccountSetup.svelte';
@@ -20,6 +21,7 @@
   });
 
   function overlayContext(): DispatcherContext['overlay'] {
+    if (app.contextMenu.open) return 'contextMenu';
     if (app.paletteOpen) return 'palette';
     if (app.compose.open) return 'compose';
     if (app.settingsKeyListening) return 'capture';
@@ -59,10 +61,14 @@
     dispatcher.handleKeydown(event);
   }
 
+  function onWindowContextMenu(event: MouseEvent): void {
+    openContextMenu(event);
+  }
+
   const paletteKbd = $derived(formatChordParts({ key: 'k', ctrl: true }));
 </script>
 
-<svelte:window onkeydown={onWindowKeydown} />
+<svelte:window onkeydown={onWindowKeydown} oncontextmenu={onWindowContextMenu} />
 
 {@html SPRITE_SVG}
 
@@ -105,4 +111,5 @@
 {#if app.accountSetupOpen}
   <AccountSetup />
 {/if}
+<ContextMenu />
 <Toast />

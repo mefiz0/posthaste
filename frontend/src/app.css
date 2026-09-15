@@ -97,6 +97,31 @@ select {
   outline-offset: -1px;
   border-radius: 4px;
 }
+/*
+ * Styling the scrollbar makes WebKitGTK paint it inside the page instead of as
+ * a compositor overlay, so overlays and the contextual menu correctly cover
+ * it. Without this the native bar floats above every z-index on the page.
+ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
 /* ---------- Shell ---------- */
 /* The sidebar is the first column and spans both rows, so the glass reaches
@@ -948,6 +973,83 @@ kbd {
 }
 .menu button.danger:hover {
   background: rgba(229, 72, 77, 0.1);
+}
+
+/* ---------- Contextual menu ---------- */
+.ctx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
+.ctx-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+.ctx-menu {
+  position: fixed;
+  min-width: 208px;
+  max-width: 280px;
+  background: var(--elev);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  z-index: 1;
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: var(--text2);
+  font-size: 13px;
+  text-align: left;
+}
+.ctx-item.active,
+.ctx-item:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+.ctx-item.danger {
+  color: var(--danger);
+}
+.ctx-item.danger.active,
+.ctx-item.danger:hover {
+  background: rgba(229, 72, 77, 0.1);
+}
+.ctx-item:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.ctx-item:disabled.active,
+.ctx-item:disabled:hover {
+  background: none;
+  color: var(--muted);
+}
+.ctx-ic,
+.ctx-ic .ic {
+  width: 14px;
+  height: 14px;
+}
+.ctx-label {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ctx-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+.ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
 }
 
 /* ---------- Overlays ---------- */

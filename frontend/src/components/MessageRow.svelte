@@ -19,6 +19,7 @@
   aria-selected={selected}
   aria-label="{message.fromName}: {message.subject}"
   tabindex="-1"
+  data-context="message"
   data-message-id={message.id}
   onclick={() => void selectMessage(message.id, { open: true })}
   onkeydown={(event) => {

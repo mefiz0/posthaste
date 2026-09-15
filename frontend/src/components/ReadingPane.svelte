@@ -131,7 +131,7 @@
   });
 </script>
 
-<section class="reading-pane" aria-label="Reading pane">
+<section class="reading-pane" aria-label="Reading pane" data-context="reading">
   {#if message}
     <div class="rp-toolbar">
       <button class="back-btn" onclick={closeReading}><Icon name="reply" />Back</button>
