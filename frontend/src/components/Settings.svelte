@@ -26,7 +26,9 @@
 
   $effect(() => {
     if (app.settingsOpen && app.settings) {
-      draft = structuredClone(app.settings);
+      // Snapshot first: app.settings is a deeply-reactive proxy and the
+      // structured clone algorithm cannot clone a proxy portably.
+      draft = $state.snapshot(app.settings);
       confirmRemoveId = null;
       rebindError = '';
     }
@@ -78,7 +80,7 @@
 
   async function onSave(): Promise<void> {
     if (!draft) return;
-    await saveSettings(structuredClone(draft));
+    await saveSettings($state.snapshot(draft));
     closeSettings();
   }
 
@@ -207,12 +209,6 @@
       <div class="pane-foot" style="margin-top:8px">
         <button class="btn" onclick={resetKeymap}>Reset to defaults</button>
       </div>
-
-      <h3>Crash reports</h3>
-      <p class="note">
-        Crash reporting is planned for a later release. When it ships it will be strictly opt-in, off by default,
-        and this section will list exactly what a report contains. No telemetry of any kind exists today.
-      </p>
 
       <div class="pane-foot">
         <span class="grow"></span>
