@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Nightly fuzz run, outside working hours.
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Fast hermetic suite on every push and PR: unit tests, lint, frontend
+    # checks. The scheduled nightly run goes to the fuzz job instead.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Tracks the module's own minimum Go version; local dev pins the
+      # toolchain in mise.toml.
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run unit tests
+        run: go test ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          # Keep in sync with golangci-lint in mise.toml.
+          version: v2.13.2
+
+      # The frontend lands incrementally; every step below is skipped until
+      # frontend/package.json exists.
+      - name: Set up Node
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - name: Install frontend dependencies
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        run: npm ci
+        working-directory: frontend
+
+      - name: Check frontend
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        run: |
+          npm run check
+          npm run test
+        working-directory: frontend
+
+  integration:
+    # Real IMAP/SMTP against the Dockerized Dovecot + Postfix harness, on PRs
+    # only: slower than the unit suite but still fully hermetic.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      POSTHASTE_TEST_IMAP_ADDR: 127.0.0.1:1143
+      POSTHASTE_TEST_SMTP_ADDR: 127.0.0.1:1025
+      POSTHASTE_TEST_USER: test@posthaste.local
+      POSTHASTE_TEST_PASSWORD: posthaste
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Start mail server harness
+        if: ${{ hashFiles('docker-compose.yml') != '' }}
+        run: docker compose up -d --wait
+
+      - name: Run integration tests
+        if: ${{ hashFiles('docker-compose.yml') != '' }}
+        run: go test -tags integration ./...
+
+      - name: Stop mail server harness
+        if: ${{ always() && hashFiles('docker-compose.yml') != '' }}
+        run: docker compose down -v
+
+  fuzz:
+    # Nightly native fuzzing of the untrusted-input paths: MIME parsing and
+    # HTML sanitization. Long-running by design, so it never blocks a PR.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Fuzz MIME parsing
+        if: ${{ hashFiles('internal/mail/*.go') != '' }}
+        run: go test -run='^$' -fuzz=FuzzParseMessage -fuzztime=2m ./internal/mail/
+
+      - name: Fuzz sanitizer
+        if: ${{ hashFiles('internal/sanitize/*.go') != '' }}
+        run: go test -run='^$' -fuzz=FuzzSanitize -fuzztime=2m ./internal/sanitize/

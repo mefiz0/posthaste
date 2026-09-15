@@ -1,0 +1,26 @@
+# Minimal MTA for the integration-test harness: accepts mail for
+# @posthaste.local only and delivers it into the Maildir volume that the
+# dovecot container reads.
+
+compatibility_level = 3.6
+
+myhostname = postfix.posthaste.test
+mydestination = localhost
+inet_interfaces = all
+inet_protocols = ipv4
+
+# Relay nothing: every RCPT TO outside the local domains is rejected.
+smtpd_relay_restrictions = reject_unauth_destination
+
+# Virtual delivery into the shared Maildir volume. The trailing slash makes
+# each entry a Maildir; the path matches dovecot's mail_location of
+# /var/mail/<user>.
+virtual_mailbox_domains = posthaste.local
+virtual_mailbox_base = /var/mail
+virtual_mailbox_maps = hash:/etc/postfix/vmailbox
+virtual_uid_maps = static:5000
+virtual_gid_maps = static:5000
+
+# Container logging without syslog.
+maillog_file = /dev/stderr
+maillog_file_prefixes = /dev, /var

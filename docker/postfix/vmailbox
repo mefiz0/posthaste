@@ -1,0 +1,2 @@
+# Recipient -> Maildir path (relative to /var/mail, trailing slash = Maildir).
+test@posthaste.local	test@posthaste.local/

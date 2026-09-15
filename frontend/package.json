@@ -1,0 +1,26 @@
+{
+  "name": "posthaste-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "format": "prettier --write src"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.1.0",
+    "@tsconfig/svelte": "^5.0.4",
+    "prettier": "^3.5.3",
+    "svelte": "^5.34.0",
+    "svelte-check": "^4.2.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.0"
+  },
+  "dependencies": {
+    "@wailsio/runtime": "3.0.0-beta.22"
+  }
+}

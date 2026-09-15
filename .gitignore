@@ -1,0 +1,31 @@
+# Local UI reference (kept on disk, not in the repo)
+mockup/
+
+# Build output. dist itself is generated, but a committed minimal index.html
+# keeps `go build -tags gtk3 .` (which embeds frontend/dist) working on a
+# fresh clone before the first `task frontend:build`.
+/bin/
+frontend/dist/*
+!frontend/dist/index.html
+frontend/src/bindings/
+frontend/node_modules/
+
+# Go
+*.test
+*.out
+coverage.out
+
+# task build cache
+.task/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Local runtime data (never committed)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.posthaste/

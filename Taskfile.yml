@@ -1,0 +1,174 @@
+version: '3'
+
+# The single entry point for every dev, build, test, and lint action.
+# Run `task --list` to see everything.
+
+vars:
+  APP_NAME: posthaste
+  BIN_DIR: bin
+  # We build against GTK3 + WebKit2GTK-4.1 because that stack is what this
+  # project targets. Every Go build of the app shell must pass this tag.
+  GO_TAGS: gtk3
+  WAILS_VERSION: v3.0.0-beta.22
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  BINDINGS_DIR: frontend/src/bindings
+
+tasks:
+  default:
+    cmds:
+      - task --list
+
+  # ----- Tooling / dependencies -------------------------------------------------
+
+  tools:
+    desc: Install dev tooling (wails3 CLI built with the gtk3 tag)
+    deps: [tools:wails]
+
+  tools:wails:
+    desc: Build the wails3 CLI from source against GTK3/WebKit2GTK-4.1
+    status:
+      - command -v wails3
+    cmds:
+      - go install -tags {{.GO_TAGS}} github.com/wailsapp/wails/v3/cmd/wails3@{{.WAILS_VERSION}}
+
+  deps:
+    desc: Download Go modules and install frontend packages
+    cmds:
+      - go mod download
+      - task: frontend:install
+
+  frontend:install:
+    dir: frontend
+    sources: [package.json, package-lock.json]
+    generates: [node_modules]
+    cmds:
+      - npm install
+
+  # ----- Generate ---------------------------------------------------------------
+
+  generate:
+    desc: Generate Wails bindings into frontend/src/bindings
+    deps: [deps]
+    sources:
+      - 'main.go'
+      - 'internal/**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+    generates:
+      - '{{.BINDINGS_DIR}}/**/*'
+    cmds:
+      # -f takes go build flags, so the tag needs the -tags prefix.
+      - wails3 generate bindings -clean=true -ts -i -f '-tags {{.GO_TAGS}}' -d {{.BINDINGS_DIR}}
+
+  # ----- Build / run ------------------------------------------------------------
+
+  build:
+    desc: Build the frontend then the app binary
+    deps: [generate]
+    cmds:
+      - task: frontend:build
+      - mkdir -p {{.BIN_DIR}}
+      - go build -tags {{.GO_TAGS}} -trimpath -o {{.BIN_DIR}}/{{.APP_NAME}} .
+
+  build:core:
+    desc: Compile only the framework-agnostic core engine (no cgo, no tags)
+    cmds:
+      - go build ./internal/...
+
+  frontend:build:
+    desc: Production build of the Svelte frontend
+    dir: frontend
+    cmds:
+      - npm run build
+
+  frontend:dev:
+    desc: Run the Vite dev server for the frontend
+    dir: frontend
+    cmds:
+      - npm run dev -- --port {{.VITE_PORT}} --strictPort
+
+  dev:
+    desc: Run the full app in development mode (hot reload)
+    deps: [tools, deps, generate]
+    cmds:
+      - wails3 dev -config build/config.yml -port {{.VITE_PORT}}
+
+  run:
+    desc: Run the built binary
+    deps: [build]
+    cmds:
+      - ./{{.BIN_DIR}}/{{.APP_NAME}}
+
+  # ----- Test -------------------------------------------------------------------
+
+  test:
+    desc: Fast hermetic suite — core engine unit tests plus frontend checks
+    cmds:
+      - go test ./...
+      - task: frontend:check
+
+  frontend:check:
+    dir: frontend
+    cmds:
+      - npm run check
+
+  frontend:test:
+    dir: frontend
+    cmds:
+      - npm run test
+
+  test:integration:
+    desc: Integration tests against the Dockerised Dovecot + Postfix harness
+    deps: [infra:up]
+    cmds:
+      - go test -tags integration ./...
+
+  test:fuzz:
+    desc: Short fuzz run over MIME parsing and HTML sanitization
+    cmds:
+      - go test -run='^$' -fuzz=FuzzParseMessage -fuzztime=30s ./internal/mail/
+      - go test -run='^$' -fuzz=FuzzSanitize -fuzztime=30s ./internal/sanitize/
+
+  # ----- Quality -----------------------------------------------------------------
+
+  lint:
+    desc: Lint Go and type-check the frontend
+    cmds:
+      - golangci-lint run
+      - task: frontend:check
+
+  format:
+    desc: Format Go and frontend sources
+    cmds:
+      - gofmt -w .
+      - golangci-lint fmt
+      - task: frontend:format
+
+  frontend:format:
+    dir: frontend
+    cmds:
+      - npm run format
+
+  # ----- Infrastructure ---------------------------------------------------------
+
+  infra:up:
+    desc: Start the Dovecot + Postfix integration test harness
+    cmds:
+      - docker compose up -d --wait
+
+  infra:down:
+    desc: Stop the integration test harness
+    cmds:
+      - docker compose down -v --remove-orphans
+
+  # ----- Packaging / clean (packaging proper lands in Phase 7) -------------------
+
+  package:
+    desc: Packaging (Flatpak/AppImage/AUR) lands in Phase 7
+    cmds:
+      - 'echo "Packaging is Phase 7; use `task build` for now."'
+
+  clean:
+    desc: Remove build outputs and caches
+    cmds:
+      - rm -rf {{.BIN_DIR}} frontend/dist frontend/src/bindings frontend/node_modules/.vite

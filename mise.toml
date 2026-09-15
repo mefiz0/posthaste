@@ -3,4 +3,10 @@ go = "1.27.1"
 task = "3.53.1"
 node = "26.8.2"
 golangci-lint = "2.13.2"
-"go:github.com/wailsapp/wails/v3/cmd/wails3" = "v3.0.0-beta.22"
+
+[env]
+# Wails v3 is built from source by `task tools:wails` with the `gtk3` build tag,
+# because this project targets the GTK3 + WebKit2GTK-4.1 stack. Keeping it out of
+# [tools] avoids mise attempting a default (GTK4) build that requires
+# webkitgtk-6.0 headers not universally available.
+_.path = ["{{config_root}}/bin"]

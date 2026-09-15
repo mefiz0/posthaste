@@ -1,0 +1,43 @@
+# Integration-test mail harness.
+#
+# Brings up a real Dovecot IMAP server and a Postfix MTA sharing one Maildir
+# volume, so `go test -tags integration` (task test:integration) exercises
+# genuine protocol behavior instead of mocks. The tests read these environment
+# variables:
+#
+#   POSTHASTE_TEST_IMAP_ADDR     127.0.0.1:1143
+#   POSTHASTE_TEST_SMTP_ADDR     127.0.0.1:1025
+#   POSTHASTE_TEST_IMAP_USER     test@posthaste.local
+#   POSTHASTE_TEST_IMAP_PASSWORD posthaste
+#
+# `task infra:up` / `task infra:down` wrap `docker compose up -d --wait` and
+# `docker compose down -v --remove-orphans`.
+
+services:
+  dovecot:
+    build: ./docker/dovecot
+    ports:
+      - "1143:143"
+    volumes:
+      - mail:/var/mail
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c 'exec 3<>/dev/tcp/127.0.0.1/143' || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  postfix:
+    build: ./docker/postfix
+    # The mail volume must already be owned by the shared vmail uid before
+    # the first delivery lands, which dovecot's entrypoint takes care of.
+    depends_on:
+      dovecot:
+        condition: service_healthy
+    ports:
+      - "1025:25"
+    volumes:
+      - mail:/var/mail
+
+volumes:
+  mail:

@@ -1,0 +1,65 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- **core:** The complete framework-agnostic mail engine under `internal/`: per-account SQLite stores with embedded goose migrations and FTS5, MIME parsing and body extraction, allowlist HTML sanitization, JWZ-style threading with late-ancestor merging, a content-addressed blob store for attachments and raw messages, the search query parser, a shared retry/backoff policy, scrub-at-capture structured logging with rotation, and XDG-based path/settings handling.
+- **sync:** Per-account sync worker: IMAP IDLE with polling fallback, initial and incremental folder/message sync, body and attachment ingest (eager under a configurable threshold, lazy above it), contact derivation, thread assignment and merge at ingest, UIDVALIDITY reset handling, server-wins flag reconciliation, and the durable offline action queue replayed in order on reconnect with conflict drops surfaced as notices.
+- **send:** Send pipeline with persisted draft→queued→sending→sent/failed states, automatic retry on the shared backoff policy (~10 attempts), immediate failure on permanent SMTP rejections, address-scrubbed error reporting, and a Sent-folder copy after successful delivery.
+- **auth:** OS keyring credential storage (secrets never touch SQLite), an in-tree XOAUTH2 SASL client for Microsoft 365, an OAuth2 loopback consent flow with PKCE and silent token refresh (Gmail, Microsoft 365), and ordered autodiscovery: provider presets, MX-based Workspace/M365 mapping, DNS SRV, the Mozilla ISPDB, and probe-verified hostname guesses.
+- **imapx:** A typed IMAP wrapper over go-imap/v2 (list, status, peek fetches, flag updates, move with fallback, expunge, append, IDLE) plus a Dockerised Dovecot/Postfix harness (`task infra:up`) and integration tests that skip cleanly when it is down.
+- **ui:** The full Svelte 5 + TypeScript frontend: topbar/sidebar/list/reading layout matching the design tokens, message list with unread-first sorting and starring, reading pane with HTML (sandboxed iframe, CSP, blocked remote content with per-message opt-in, resolved `cid:` images) and Plain Text tabs, compose drawer with recipient autocomplete, debounced draft autosave and attachments, command palette, declarative and rebindable keyboard shortcuts with a `?` reference overlay, toasts, account setup (autodiscovery, password and OAuth paths), settings, and a browser-runnable mock backend for development.
+- **app:** Wails v3 application shell: main window (1280x800, min 900x600) serving the built frontend, wired to the core mail engine through bound services.
+- **app:** Account registry at `<config>/accounts.json` with atomic writes, holding the account list before any per-account database is opened.
+- **app:** Per-account manager: one supervised sync worker and one send worker per account, restarted with backoff on crash, cancelled on pause, removal, and shutdown.
+- **app:** Bound services: accounts (discovery, verification, OAuth loopback flows, pause, removal, preferences), mail (folders, messages, flags, archive/delete/move, mark-all-read, cross-account search, threads), compose (contacts, drafts, send queue, outbox view), attachments (inline data URLs, lazy fetch, open, save), settings, and app actions (sync now, external links, quit).
+- **app:** Engine event push to the UI: `sync-state`, `folders-changed`, `messages-changed`, `unread-count`, `send-state`, `toast`, plus `accounts-changed` and `settings-changed`.
+- **app:** Native desktop notifications via the Wails notifications service (freedesktop.org on Linux) for new mail, send failures, and account authentication problems; per-account and global notification toggles are respected.
+- **app:** Optional system tray (minimize-to-tray setting) with show/compose/quit menu and an unread badge in the tray label; graceful note logged on GNOME without tray support.
+- **app:** Opt-in tray behaviour on window close: with minimize-to-tray enabled, closing hides the window instead of quitting.
+- **send:** `BuildRawMIME` renders an outbox row into final RFC 5322 bytes; the Sent-folder copy is stored with it after a successful delivery.
+- **app:** Per-message remote-content opt-in: the mail service's `GetMessageHTML` re-sanitizes the message's on-disk raw source with remote loads allowed (never touching the sanitized-at-rest store), and message detail carries `hasRemoteContent` so the reading pane offers the opt-in only when remote references exist.
+- **app:** Compose attachments through a native multi-select file dialog: the shell injects the dialog hook, `PickAttachments` returns chosen files with names and sizes, and drafts ingest them into the blob store keeping their file names through send and the Sent copy.
+- **app:** OAuth consent completion is event-driven: flows resolve through an `oauth-complete` event (matched by state id) instead of holding a binding call open for minutes, and a new `CancelOAuth` call abandons a pending consent.
+- **ui:** Compose drawer attaches files through the native dialog with named, size-labelled chips; the reading pane's "Load remote content" button is enabled under the real engine and fetches the remote-inclusive HTML for that message only; the OAuth sign-in step gains a cancel button.
+- **ui:** Generated TypeScript bindings for all bound services in `frontend/src/bindings` (via `task generate`).
+- **ui:** First run with no accounts opens the account setup flow automatically instead of leaving an empty three-pane shell.
+- **ui:** Quick filters (All / Unread / Starred / Attachments) above the message list, and a Compose button in the list header.
+- **ui:** An attachment topbar above the message body listing every file attachment (collapsed past four with a show-more toggle), and an in-app attachment viewer with image, PDF, text, audio, and video previews plus Open and Save.
+- **ui:** Inline preview for Office and OpenDocument attachments (`.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`) in the attachment viewer. The XML is extracted with the browser's built-in ZIP/DOM APIs, so no archive or document dependency is added.
+- **ui:** The message list pages in the rest of a folder as it scrolls instead of stopping at the first 200 rows.
+- **ui:** Clicking the sidebar sync status opens a "Sync activity" panel with a per-folder breakdown of the current pass ("Inbox — 3 new", "Sent — up to date", "pass complete"), recent account state changes and errors with timestamps, and a Sync now button. The engine retains a bounded activity log so passes that ran before the UI subscribed are still shown.
+
+### Changed
+
+- **sync:** Steady-state passes now reconcile flags and message existence with a flags-only IMAP fetch instead of re-downloading every header in the mailbox, and the IMAP client reuses the current mailbox selection instead of issuing a SELECT before every operation. On a high-latency link this removes a large share of the round trips and bytes per pass.
+- **ui:** The HTML message now fills the reading pane's full width and height and scrolls inside its sandboxed frame; the subject, sender, and HTML/Plain-text tabs moved into a compact non-scrolling header above it.
+- **ui:** The command palette, compose drawer, shortcuts overlay, and settings/setup panes are now opaque surfaces rather than translucent blurred panels.
+- **sync:** An APPEND now re-syncs only the folder it was written to (usually Sent) instead of running a full pass over every mailbox, so sending a message no longer leaves the account on "Syncing…".
+- **ui:** The desktop window is transparent and the sidebar is a full-height frosted-glass column that reaches the top of the window, sampling the wallpaper behind it with a heavy blur and a darkening scrim for legible text; every other pane stays opaque, with an opaque sidebar fallback when `backdrop-filter` is unsupported or reduced transparency is requested.
+- **ui:** The sidebar's sync footer distinguishes an in-progress sync (pulsing dot, no action) from a problem, and only offers Retry for offline or failed accounts; error detail is surfaced in the tooltip.
+- **send:** Outbox rows now record composed attachments as `{hash, name}` objects so the original file names reach the sent MIME; older rows storing bare hash arrays still send unchanged.
+- **build:** `task generate` now passes the GTK3 tag to the bindings generator as a proper `-tags` build flag.
+- **build:** `frontend/dist/index.html` is no longer gitignored so a fresh clone can build the app shell before the first frontend build; the rest of `frontend/dist` stays ignored.
+
+### Fixed
+
+- **sync:** A pass now reconciles every folder's headers and flags before downloading any message bodies, and a body transfer that times out is logged and left pending rather than aborting the pass. Previously a slow INBOX body fetch failed the whole pass before other folders were reached, so a newly sent message never appeared in Sent even though its copy had been uploaded.
+- **sync:** Full-body fetches are now requested in smaller batches (10 rather than 25) so a slow connection is less likely to time out mid-batch.
+- **sync:** The Sent-folder copy of a delivered message is retried a few times before giving up, because slow connections drop APPENDs; the message itself is never affected.
+- **sync:** Flag, archive, delete, and mark-all-read actions now trigger a targeted sync of just the affected folder instead of a full pass over every mailbox. Previously every read message launched a pass across all folders, which is why syncing felt constant and slow.
+- **sync:** APPENDs are now served while a sync pass is running and the uploaded copy's folder is synced back immediately, so a sent message shows up in Sent promptly instead of waiting behind a full pass over every mailbox — and the append no longer times out on a large account, which previously meant the Sent copy was never uploaded.
+- **ui:** The message list scrolls again. After the sidebar became full-height the workspace grid's row had no bounded size, so the list and reading panes grew to their content height and the inner scroll areas never overflowed.
+- **ui:** Compose is available from the command palette while a message is open; it was gated as a list-only command and hidden once a message was selected.
+- **ui:** The message HTML frame now follows the app's dark theme by inverting the message content (hue-rotated back, images re-inverted) on the app surface, instead of rendering a white slab; the frame's base colour is the pane surface so there is no white flash while it loads.
+- **ui:** Removed `backdrop-filter` from the sticky reading-pane toolbar. On WebKitGTK a blurred sticky layer repaints badly over the sandboxed message iframe while scrolling, which read as the message content squashing.
+- **app:** Account IDs are now drawn within JavaScript's safe integer range, and existing larger IDs are migrated on startup by renaming the account database, rekeying its stored row, and rewriting the registry. Previously the 63-bit random ID was rounded as it crossed the UI bridge, so a listed account failed every per-account call with "account … is not running" and no folder showed any mail even though a sync pass completed.
+- **app:** An account left paused across an application restart now gets its store opened on startup, so its cached mail stays readable; previously the paused account was skipped entirely and every per-account call (folders, messages, flags) failed with "account … is not running" even though the account was listed.
+- **ui:** The frontend now subscribes to engine events at the start of `init` instead of after its first queries, so an early `sync-state` change emitted while the initial load is in flight is no longer missed, which could leave the sidebar showing a stale "Syncing…".
+- **sync:** A locally moved message no longer appears twice in the target folder. The moved row's UID is cleared until the server assigns the new one, and the target folder's next pass used to ingest the server copy as a second row beside it; the engine now adopts the existing row by Message-ID (same folder, or any folder while the row has no UID), renumbering it from the server while keeping its body, attachments, and thread. Copies of the same message that legitimately live in two folders with real UIDs are never merged, and messages without a Message-ID header are never matched.

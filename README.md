@@ -1,0 +1,134 @@
+# Posthaste
+
+<!-- Screenshot placeholder: drop a capture of the main window at
+     docs/screenshot.png and uncomment.
+![Posthaste main window](docs/screenshot.png) -->
+
+Posthaste is a fast, reliable, offline-first desktop email client for Linux.
+It is an **email client, not an email service**: you connect the IMAP/SMTP
+accounts you already have and keep full ownership of your mail. There is no
+telemetry of any kind — not opt-in, not anonymized, nothing.
+
+> **Status: early development.** The ordered build plan lives in
+> [docs/implementation-plan.md](docs/implementation-plan.md). What is described
+> below is the destination, not the current feature set.
+
+## Features
+
+- **Multi-account IMAP/SMTP** — plain IMAP/SMTP plus OAuth2 for providers that
+  require it (Gmail, Microsoft 365), with guided autodiscovery and a manual
+  fallback.
+- **Offline-first** — read, search, and compose without a connection; actions
+  made offline sit in a durable queue and replay in order on reconnect.
+- **Instant full-text search** — SQLite FTS5 indexing over senders, subjects,
+  and bodies, kept current at ingest.
+- **Conversations** — JWZ-style threading computed once at ingest, not per
+  render.
+- **Safe HTML rendering** — allowlist sanitization at ingest, rendered in a
+  sandboxed iframe with JavaScript disabled and remote content blocked by
+  default.
+- **Keyboard-driven** — a declarative, configurable keymap plus a fuzzy
+  command palette; every action is reachable from both.
+- **Quiet desktop integration** — native notifications for meaningful events
+  only, optional system tray, no background chatter.
+
+## Requirements
+
+- Linux desktop (the v1 target platform).
+- GTK3 + WebKit2GTK-4.1 development packages:
+  - **Debian/Ubuntu:** `sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config`
+  - **Arch:** `sudo pacman -S --needed gtk3 webkit2gtk-4.1 base-devel`
+  - **Fedora:** `sudo dnf install gtk3-devel webkit2gtk4.1-devel gcc gcc-c++ make`
+- [Go](https://go.dev) 1.25+
+- [Node.js](https://nodejs.org) 20+
+- [Task](https://taskfile.dev) — the single entry point for every dev command
+- [mise](https://mise.jdx.dev) (optional) — pins the exact toolchains from
+  `mise.toml`
+
+## Getting started
+
+```sh
+# with mise (recommended — installs the pinned Go, Task, Node, golangci-lint):
+mise install
+# or install the tools by hand, then:
+
+task deps              # go mod download + npm install
+task build             # vite build + go build -tags gtk3 -> bin/posthaste
+task dev               # frontend dev server + live Go run
+```
+
+The app shell builds against **GTK3 + WebKit2GTK-4.1**; Go builds of the app
+always pass `-tags gtk3` (the core engine needs no tag). The `wails3` CLI is
+built from source with that tag by `task tools:wails`.
+
+## Testing
+
+```sh
+task test              # hermetic unit tests + frontend checks (no network, no Docker)
+task test:integration  # real Dovecot + Postfix in Docker, driven by go test -tags integration
+task test:fuzz         # short native fuzz run over MIME parsing and sanitization
+```
+
+The integration harness is the `docker-compose.yml` mail server (Dovecot IMAP
+on `127.0.0.1:1143`, Postfix submission on `127.0.0.1:1025`, account
+`test@posthaste.local` / `posthaste`). Integration tests skip cleanly when the
+container is unreachable, so the fast suite stays hermetic.
+
+## Project layout
+
+```
+main.go                Wails app entry: window, services, tray, notifications
+internal/              core mail engine (no UI dependencies)
+  settings/            global config + XDG paths
+  store/               per-account SQLite, migrations, repositories
+  mail/                MIME parsing, body extraction, cid resolution
+  sanitize/            allowlist HTML sanitizer
+  thread/              JWZ-ish threading
+  search/              query parser
+  auth/                keyring, XOAUTH2, autodiscovery
+  attachment/          content-addressed blob store
+  imapx/               go-imap/v2 wrapper
+  sync/                per-account sync worker, offline queue
+  send/                send-state machine + queue worker
+  backoff/             shared retry/backoff policy
+  logging/             slog setup, rotation, capture-time scrubbing
+  app/                 Wails bindings + event bus (only Wails importer)
+frontend/              Svelte 5 + TypeScript UI
+migrations/            goose SQL migrations, embedded
+docker/                integration-test mail server configuration
+docs/                  product spec, tech specs, implementation plan
+```
+
+## Architecture in five lines
+
+- `internal/` is a framework-agnostic core mail engine: pure Go, unit-testable
+  with no display and no network.
+- `main.go` + `internal/app` form the Wails v3 app shell and expose the engine
+  to the UI as bound services and an event bus; only this layer imports Wails.
+- `frontend/` is a Svelte 5 + TypeScript UI rendered by WebKitGTK; it talks to
+  bound Go methods and events, never to IMAP/SMTP/SQLite directly.
+- Each account gets its own SQLite database and its own sync goroutine;
+  cross-account views merge results in Go.
+- Credentials live only in the OS keyring; SQLite stores a reference, never a
+  secret.
+
+## Privacy
+
+- **No telemetry, ever.** No analytics, no usage counters, no phone-home of
+  any form — not even opt-in.
+- **Credentials stay in the OS keyring** (GNOME Keyring / KWallet via Secret
+  Service).
+- **Logs are scrubbed at capture.** Local logging is always on and never
+  touches the network; message bodies, subjects, addresses, attachment
+  filenames, and tokens are filtered where the value is captured, so there is
+  no path for them to reach the log file. Accounts are identified by internal
+  ID in logs, never by address.
+- Crash reporting does not exist yet; when it arrives it will be opt-in, off
+  by default, and held to the same scrubbing rules.
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 Posthaste contributors.
+
+Design details and rationale live in [`docs/tech-specs.md`](docs/tech-specs.md)
+and [`docs/product.md`](docs/product.md).

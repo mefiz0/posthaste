@@ -1,0 +1,39 @@
+version: '3'
+
+# Build metadata consumed by the Wails v3 tooling and by `task build`.
+info:
+  companyName: "Posthaste"
+  productName: "Posthaste"
+  productIdentifier: "io.posthaste.app"
+  description: "Fast, reliable, offline-first desktop email client for Linux"
+  copyright: "(c) 2026, Posthaste contributors"
+  comments: "An email client, not an email service."
+  version: "0.1.0"
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - "*_test.go"
+  watched_extension:
+    - "*.go"
+    - "*.ts"
+  git_ignore: true
+  executes:
+    - cmd: go build -tags gtk3 -o bin/posthaste .
+      type: blocking
+    - cmd: task frontend:dev
+      type: background
+    - cmd: ./bin/posthaste
+      type: primary
+
+fileAssociations:
