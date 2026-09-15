@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { focusTrap } from '../lib/focus';
+  import { overlayFade } from '../lib/transitions';
   import { app, addAccount, closeAccountSetup } from '../lib/stores.svelte';
   import { api, backendKind, openExternal } from '../lib/api';
   import type { DiscoveredConfig, ManualAccountInput, ServerConfig, ServerSecurity } from '../lib/types';
@@ -148,7 +149,7 @@
   const securityOptions: ServerSecurity[] = ['tls', 'starttls', 'none'];
 </script>
 
-<div class="overlay open" role="presentation">
+<div class="overlay open" transition:overlayFade role="presentation">
   <button class="backdrop" aria-label="Close account setup" onclick={closeAccountSetup}></button>
   <div class="dialog pane" role="dialog" aria-modal="true" aria-label="Add account" use:focusTrap>
     <div class="pane-head">

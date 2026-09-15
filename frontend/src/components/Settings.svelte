@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { focusTrap } from '../lib/focus';
+  import { overlayFade } from '../lib/transitions';
   import {
     app,
     closeSettings,
@@ -97,7 +98,7 @@
 
 <svelte:window onkeydown={onCaptureKeydown} />
 
-<div class="overlay open" role="presentation">
+<div class="overlay open" transition:overlayFade role="presentation">
   <button class="backdrop" aria-label="Close settings" onclick={closeSettings}></button>
   <div class="dialog pane" role="dialog" aria-modal="true" aria-label="Settings" use:focusTrap>
     <div class="pane-head">

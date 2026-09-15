@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { focusTrap } from '../lib/focus';
+  import { overlayFade } from '../lib/transitions';
   import type { ContextMenuItem } from '../lib/contextmenu';
   import { app, closeContextMenu } from '../lib/stores.svelte';
 
@@ -64,7 +65,7 @@
 </script>
 
 {#if app.contextMenu.open}
-  <div class="ctx-layer" role="presentation">
+  <div class="ctx-layer" transition:overlayFade role="presentation">
     <button class="ctx-backdrop" aria-label="Close menu" onclick={closeContextMenu}></button>
     <div
       class="ctx-menu"

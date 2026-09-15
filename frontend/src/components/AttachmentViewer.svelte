@@ -9,6 +9,7 @@
   import { api } from "../lib/api";
   import { formatBytes } from "../lib/format";
   import { isOfficePreviewable, renderOffice, type OfficePreview } from "../lib/office";
+  import { overlayFade } from "../lib/transitions";
 
   const attachment = $derived(app.viewerAttachment);
 
@@ -110,7 +111,7 @@
   }
 </script>
 
-<div class="overlay open viewer-overlay">
+<div class="overlay open viewer-overlay" transition:overlayFade>
   <button class="backdrop" aria-label="Close attachment preview" onclick={closeAttachmentViewer}></button>
   <div class="dialog viewer" role="dialog" aria-modal="true" aria-label="Attachment preview" tabindex="-1">
     {#if attachment}

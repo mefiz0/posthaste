@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { prefersReducedMotion } from 'svelte/motion';
   import { SPRITE_SVG } from './lib/icons';
-  import { app, init, openContextMenu, openPalette, runKeyAction } from './lib/stores.svelte';
+  import { app, init, openContextMenu, openPalette, runKeyAction, toggleSidebar } from './lib/stores.svelte';
+  import Icon from './components/Icon.svelte';
   import { createDispatcher, formatChordParts, isTypingTarget, type ActionId, type DispatcherContext } from './lib/keys';
   import Sidebar from './components/Sidebar.svelte';
   import MessageList from './components/MessageList.svelte';
@@ -15,10 +17,30 @@
   import AccountSetup from './components/AccountSetup.svelte';
   import Settings from './components/Settings.svelte';
   import Toast from './components/Toast.svelte';
-  import logo from './assets/logo.png';
 
   onMount(() => {
     void init();
+  });
+
+  // Slightly longer than the 200ms column-width transition it waits for.
+  const RAIL_SETTLE_MS = 220;
+
+  // Collapsing reflows the sidebar content only after the column has finished
+  // narrowing; switching at the start would snap the icons to the centre of
+  // the wide column first. Expanding switches straight away, where the
+  // clipping hides the change.
+  let railContent = $state(app.sidebarCollapsed);
+
+  $effect(() => {
+    if (!app.sidebarCollapsed) {
+      railContent = false;
+      return;
+    }
+    const timer = setTimeout(
+      () => (railContent = true),
+      prefersReducedMotion.current ? 0 : RAIL_SETTLE_MS,
+    );
+    return () => clearTimeout(timer);
   });
 
   function overlayContext(): DispatcherContext['overlay'] {
@@ -73,10 +95,24 @@
 
 {@html SPRITE_SVG}
 
-<div class="app" data-reading={app.readingOpen ? '1' : '0'} data-rail={app.sidebarCollapsed ? '1' : '0'}>
+<div
+  class="app"
+  data-reading={app.readingOpen ? '1' : '0'}
+  data-rail={app.sidebarCollapsed ? '1' : '0'}
+  data-rail-content={railContent ? '1' : '0'}
+>
   <Sidebar />
   <header class="topbar">
-    <div class="crumb"><img class="mark" src={logo} alt="" /><span>{app.view.title}</span></div>
+    <button
+      class="rail-toggle"
+      title={app.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      aria-label={app.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      aria-pressed={app.sidebarCollapsed}
+      onclick={() => void toggleSidebar()}
+    >
+      <Icon name="chev" />
+    </button>
+    <div class="crumb"><span>{app.view.title}</span></div>
     <div class="spacer"></div>
     <button class="search-trigger" title="Search mail" onclick={() => openPalette('commands')}>
       <svg class="ic"><use href="#i-search" /></svg>

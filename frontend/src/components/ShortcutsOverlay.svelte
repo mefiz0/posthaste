@@ -2,6 +2,7 @@
   import { focusTrap } from '../lib/focus';
   import { app } from '../lib/stores.svelte';
   import { formatChordParts, getKeymap, type KeyBinding } from '../lib/keys';
+  import { overlayFade } from '../lib/transitions';
 
   const GROUP_ORDER = ['Navigation', 'Message', 'Compose', 'Global'] as const;
   type GroupName = (typeof GROUP_ORDER)[number];
@@ -21,7 +22,7 @@
   });
 </script>
 
-<div class="overlay open" role="presentation">
+<div class="overlay open" transition:overlayFade role="presentation">
   <button
     class="backdrop"
     aria-label="Close keyboard shortcuts"

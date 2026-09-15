@@ -8,10 +8,20 @@
     visibleMessages,
   } from "../lib/stores.svelte";
   import type { MessageFilter } from "../lib/types";
+  import { flip } from "svelte/animate";
+  import { prefersReducedMotion } from "svelte/motion";
+  import { revealDown } from "../lib/transitions";
   import MessageRow from "./MessageRow.svelte";
   import Icon from "./Icon.svelte";
 
   let listScroll = $state<HTMLElement | null>(null);
+  let searchInput = $state<HTMLInputElement | null>(null);
+
+  // Focus the field as soon as the bar is revealed so Alt+/ is immediately
+  // usable; the input then owns the keystrokes until it closes.
+  $effect(() => {
+    if (app.searchOpen) searchInput?.focus();
+  });
 
   const messages = $derived(visibleMessages());
   const isEmpty = $derived(messages.length === 0);
@@ -69,23 +79,26 @@
       </button>
     {/each}
   </div>
-  <div class="search-bar" class:open={app.searchOpen}>
-    <Icon name="search" />
-    <input
-      type="text"
-      placeholder="Search mail…  from:  has:attachment  is:unread"
-      spellcheck="false"
-      aria-label="Search mail"
-      bind:value={app.searchQuery}
-      onkeydown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeSearch();
-        }
-      }}
-    />
-    <kbd>Esc</kbd>
-  </div>
+  {#if app.searchOpen}
+    <div class="search-bar" transition:revealDown>
+      <Icon name="search" />
+      <input
+        bind:this={searchInput}
+        type="text"
+        placeholder="Search mail…  from:  has:attachment  is:unread"
+        spellcheck="false"
+        aria-label="Search mail"
+        bind:value={app.searchQuery}
+        onkeydown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            closeSearch();
+          }
+        }}
+      />
+      <kbd>Esc</kbd>
+    </div>
+  {/if}
   <div
     class="list-scroll"
     role="listbox"
@@ -109,7 +122,13 @@
       </div>
     {:else}
       {#each messages as message (message.id)}
-        <MessageRow {message} />
+        <div
+          class="row-wrap"
+          role="presentation"
+          animate:flip={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+        >
+          <MessageRow {message} />
+        </div>
       {/each}
       {#if app.listHasMore}
         <div class="list-more">{app.listLoading ? "Loading…" : ""}</div>

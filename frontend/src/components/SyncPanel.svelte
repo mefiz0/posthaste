@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { app, closeSyncPanel, syncAll } from "../lib/stores.svelte";
+  import { overlayFade } from "../lib/transitions";
 
   const accounts = $derived(
     app.accounts.map((account) => ({
@@ -12,7 +13,7 @@
   const entries = $derived([...app.syncLog].reverse());
 </script>
 
-<div class="overlay open sync-overlay">
+<div class="overlay open sync-overlay" transition:overlayFade>
   <button class="backdrop" aria-label="Close sync activity" onclick={closeSyncPanel}></button>
   <div class="dialog sync-panel" role="dialog" aria-modal="true" aria-label="Sync activity">
     <div class="sync-head">

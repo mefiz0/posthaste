@@ -8,7 +8,6 @@
     selectStarred,
     setFolderId,
     syncAll,
-    toggleSidebar,
   } from '../lib/stores.svelte';
   import { folderIcon } from '../lib/icons';
   import type { FolderType } from '../lib/types';
@@ -87,14 +86,6 @@
   <div class="sb-head">
     <img class="sb-logo" src={logo} alt="" />
     <div class="wordmark">Posthaste</div>
-    <button
-      class="rail-toggle"
-      title={app.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      aria-label={app.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      onclick={() => void toggleSidebar()}
-    >
-      <Icon name="chev" />
-    </button>
   </div>
 
   <nav class="sb-nav" aria-label="Mailboxes">

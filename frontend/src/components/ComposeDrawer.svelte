@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import Icon from './Icon.svelte';
   import { focusTrap } from '../lib/focus';
+  import { overlayFade } from '../lib/transitions';
   import {
     app,
     defaultAccount,
@@ -295,7 +296,7 @@
   }
 </script>
 
-<div class="overlay open" role="presentation">
+<div class="overlay open" transition:overlayFade role="presentation">
   <button class="backdrop" aria-label="Close compose" onclick={requestCloseCompose}></button>
   <div
     class="dialog compose"

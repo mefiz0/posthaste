@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import MessageFrame from "./MessageFrame.svelte";
+  import { slide } from "svelte/transition";
+  import { prefersReducedMotion } from "svelte/motion";
   import {
     app,
     accountIdForMessage,
@@ -146,117 +148,126 @@
 
 <section class="reading-pane" aria-label="Reading pane" data-context="reading">
   {#if message}
-    <div class="rp-main">
-      <div class="rp-toolbar">
-        <button class="back-btn" onclick={closeReading}><Icon name="reply" />Back</button>
-        <span class="grow"></span>
-        <button onclick={() => openCompose("reply")}><Icon name="reply" />Reply</button>
-        <button onclick={() => openCompose("forward")}><Icon name="forward" />Forward</button>
-        <button
-          onclick={() => void toggleStar(message.id)}
-          aria-pressed={message.flags.flagged}
-        >
-          <Icon name="star" fill={message.flags.flagged} />{message.flags.flagged ? "Starred" : "Star"}
-        </button>
-        {#if app.threadMessages.length > 1}
-          <button onclick={toggleThreadPanel} aria-pressed={threadVisible}>
-            <Icon name="thread" />Thread
+    {#key message.id}
+      <div class="rp-main">
+        <div class="rp-toolbar">
+          <button class="back-btn" onclick={closeReading}><Icon name="reply" />Back</button>
+          <span class="grow"></span>
+          <button onclick={() => openCompose("reply")}><Icon name="reply" />Reply</button>
+          <button onclick={() => openCompose("forward")}><Icon name="forward" />Forward</button>
+          <button
+            onclick={() => void toggleStar(message.id)}
+            aria-pressed={message.flags.flagged}
+          >
+            <Icon name="star" fill={message.flags.flagged} />{message.flags.flagged ? "Starred" : "Star"}
           </button>
-        {/if}
-        <span class="anchor">
-          <button onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen}>
-            <Icon name="more" />More
-          </button>
-          {#if menuOpen}
-            <button class="menu-backdrop" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
-            <div class="menu" role="menu" aria-label="More actions">
-              {#each menuItems as item (item.id)}
-                <button role="menuitem" class:danger={item.danger} onclick={item.run}>
-                  <Icon name={item.icon} />{item.label}
+          {#if app.threadMessages.length > 1}
+            <button onclick={toggleThreadPanel} aria-pressed={threadVisible}>
+              <Icon name="thread" />Thread
+            </button>
+          {/if}
+          <span class="anchor">
+            <button onclick={() => (menuOpen = !menuOpen)} aria-haspopup="menu" aria-expanded={menuOpen}>
+              <Icon name="more" />More
+            </button>
+            {#if menuOpen}
+              <button class="menu-backdrop" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
+              <div class="menu" role="menu" aria-label="More actions">
+                {#each menuItems as item (item.id)}
+                  <button role="menuitem" class:danger={item.danger} onclick={item.run}>
+                    <Icon name={item.icon} />{item.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </span>
+        </div>
+
+        <div class="rp-head">
+          <h1 class="rp-subject">{message.subject}</h1>
+          <div class="rp-meta">
+            <div class="avatar">{initials(message.fromName)}</div>
+            <div>
+              <div class="rp-from">{message.fromName}</div>
+              <div class="rp-addr">{message.fromName} &lt;{message.fromAddress}&gt;</div>
+              <div class="rp-to">{toLine} · {formatDateFull(new Date(message.dateIso))}</div>
+            </div>
+          </div>
+
+          {#if hasHtml || remoteBlocked}
+            <div class="rp-headrow">
+              {#if hasHtml}
+                <div class="rp-tabs" role="tablist" aria-label="Message body format">
+                  <button role="tab" aria-selected={activeTab === "html"} onclick={() => (activeTab = "html")}>HTML</button>
+                  <button role="tab" aria-selected={activeTab === "text"} onclick={() => (activeTab = "text")}>Plain text</button>
+                </div>
+              {/if}
+              {#if remoteBlocked}
+                <button class="rp-remote-btn" onclick={() => void loadRemote()} disabled={loadingRemote}>
+                  <Icon name="moon" />
+                  {loadingRemote ? "Loading…" : "Remote content blocked — load it"}
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        {#if fileAttachments.length}
+          <div class="rp-attachbar" aria-label="Attachments">
+            <Icon name="clip" />
+            <span class="rp-attachbar-count">
+              {fileAttachments.length}
+              {fileAttachments.length === 1 ? "attachment" : "attachments"}
+            </span>
+            <div class="rp-attachbar-list">
+              {#each shownAttachments as attachment (attachment.id)}
+                <button
+                  class="attach-chip"
+                  title="Preview {attachment.filename}"
+                  onclick={() => viewAttachment(attachment)}
+                >
+                  <span class="attach-chip-name">{attachment.filename}</span>
+                  <span class="attach-chip-size">
+                    {attachment.fetchState === "fetched" ? "" : "not downloaded · "}{formatBytes(attachment.sizeBytes)}
+                  </span>
                 </button>
               {/each}
             </div>
-          {/if}
-        </span>
-      </div>
-
-      <div class="rp-head">
-        <h1 class="rp-subject">{message.subject}</h1>
-        <div class="rp-meta">
-          <div class="avatar">{initials(message.fromName)}</div>
-          <div>
-            <div class="rp-from">{message.fromName}</div>
-            <div class="rp-addr">{message.fromName} &lt;{message.fromAddress}&gt;</div>
-            <div class="rp-to">{toLine} · {formatDateFull(new Date(message.dateIso))}</div>
-          </div>
-        </div>
-
-        {#if hasHtml || remoteBlocked}
-          <div class="rp-headrow">
-            {#if hasHtml}
-              <div class="rp-tabs" role="tablist" aria-label="Message body format">
-                <button role="tab" aria-selected={activeTab === "html"} onclick={() => (activeTab = "html")}>HTML</button>
-                <button role="tab" aria-selected={activeTab === "text"} onclick={() => (activeTab = "text")}>Plain text</button>
-              </div>
-            {/if}
-            {#if remoteBlocked}
-              <button class="rp-remote-btn" onclick={() => void loadRemote()} disabled={loadingRemote}>
-                <Icon name="moon" />
-                {loadingRemote ? "Loading…" : "Remote content blocked — load it"}
+            {#if hiddenAttachmentCount > 0}
+              <button class="attach-toggle" onclick={() => (attachmentsExpanded = !attachmentsExpanded)}>
+                {attachmentsExpanded ? "Show less" : `+${hiddenAttachmentCount} more`}
               </button>
             {/if}
           </div>
         {/if}
-      </div>
 
-      {#if fileAttachments.length}
-        <div class="rp-attachbar" aria-label="Attachments">
-          <Icon name="clip" />
-          <span class="rp-attachbar-count">
-            {fileAttachments.length}
-            {fileAttachments.length === 1 ? "attachment" : "attachments"}
-          </span>
-          <div class="rp-attachbar-list">
-            {#each shownAttachments as attachment (attachment.id)}
-              <button
-                class="attach-chip"
-                title="Preview {attachment.filename}"
-                onclick={() => viewAttachment(attachment)}
-              >
-                <span class="attach-chip-name">{attachment.filename}</span>
-                <span class="attach-chip-size">
-                  {attachment.fetchState === "fetched" ? "" : "not downloaded · "}{formatBytes(attachment.sizeBytes)}
-                </span>
-              </button>
-            {/each}
-          </div>
-          {#if hiddenAttachmentCount > 0}
-            <button class="attach-toggle" onclick={() => (attachmentsExpanded = !attachmentsExpanded)}>
-              {attachmentsExpanded ? "Show less" : `+${hiddenAttachmentCount} more`}
-            </button>
+        <div class="rp-content" class:html={isHtmlActive}>
+          {#if isHtmlActive}
+            <MessageFrame
+              html={allowRemote && remoteHtml != null ? remoteHtml : (message.bodyHtml ?? "")}
+              {allowRemote}
+              {resolveCid}
+            />
+          {:else}
+            <div class="rp-text">
+              {#each paragraphs as paragraph, index (index)}
+                <p>{paragraph}</p>
+              {/each}
+            </div>
           {/if}
         </div>
-      {/if}
-
-      <div class="rp-content" class:html={isHtmlActive}>
-        {#if isHtmlActive}
-          <MessageFrame
-            html={allowRemote && remoteHtml != null ? remoteHtml : (message.bodyHtml ?? "")}
-            {allowRemote}
-            {resolveCid}
-          />
-        {:else}
-          <div class="rp-text">
-            {#each paragraphs as paragraph, index (index)}
-              <p>{paragraph}</p>
-            {/each}
-          </div>
-        {/if}
       </div>
-    </div>
+    {/key}
 
     {#if threadVisible}
-      <aside class="rp-thread" aria-label="Conversation">
+      <aside
+        class="rp-thread"
+        aria-label="Conversation"
+        transition:slide={{
+          axis: "x",
+          duration: prefersReducedMotion.current ? 0 : 180,
+        }}
+      >
         <div class="rp-thread-head">
           <span class="rp-thread-title">Conversation</span>
           <span class="rp-thread-count">{app.threadMessages.length}</span>

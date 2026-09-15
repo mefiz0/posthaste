@@ -26,6 +26,9 @@
     -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  /* One easing curve for every short UI movement, so the whole app feels
+     consistent. Decelerating, no overshoot. */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 * {
   box-sizing: border-box;
@@ -123,6 +126,15 @@ select {
   background: transparent;
 }
 
+/* Inner scrollers stop the wheel from chaining to the pane behind them. */
+.list-scroll,
+.rp-content,
+.rp-thread-list,
+.sync-log,
+.palette-list {
+  overscroll-behavior: contain;
+}
+
 /* ---------- Shell ---------- */
 /* The sidebar is the first column and spans both rows, so the glass reaches
    the very top of the window; the topbar only sits over the content columns. */
@@ -132,6 +144,9 @@ select {
   grid-template-columns: var(--sb, 220px) 360px minmax(0, 1fr);
   grid-template-rows: 46px minmax(0, 1fr);
   min-width: 0;
+  /* The rail width animates here; the glass layer inside the sidebar keeps a
+     fixed width and is clipped, so the backdrop filter survives the resize. */
+  transition: grid-template-columns 0.2s var(--ease);
 }
 .topbar {
   grid-column: 2 / 4;
@@ -150,13 +165,6 @@ select {
   gap: 9px;
   font-size: 13.5px;
   font-weight: 500;
-}
-.topbar .crumb .mark {
-  width: 16px;
-  height: 16px;
-  border-radius: 4.5px;
-  display: block;
-  flex: 0 0 auto;
 }
 .topbar .spacer {
   flex: 1;
@@ -217,6 +225,23 @@ kbd {
 .sidebar {
   grid-column: 1;
   grid-row: 1 / 3;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+/*
+ * The frosted pane is its own layer with a fixed width: WebKit drops a
+ * backdrop filter when the element carrying it is resized, so the glass stays
+ * put and the sidebar clips it as the collapsed rail narrows. Only the clip
+ * edge moves, which keeps the wallpaper sharp through the whole animation.
+ */
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--sb, 220px);
   background-color: var(--glass-sidebar);
   background-image: linear-gradient(
     180deg,
@@ -225,12 +250,23 @@ kbd {
   );
   -webkit-backdrop-filter: var(--glass-sidebar-blur);
   backdrop-filter: var(--glass-sidebar-blur);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
+  pointer-events: none;
+}
+/* A separate edge line can track the moving boundary the glass layer cannot. */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+/* Keep the pane's content above the two decorative layers. */
+.sb-head,
+.sb-nav,
+.sb-foot {
+  position: relative;
+  z-index: 1;
 }
 /* The wallpaper behind the glass can be bright, so lift the sidebar's text
    off it: a touch more weight in the greys and a soft shadow under each
@@ -269,12 +305,14 @@ kbd {
   letter-spacing: 0.02em;
 }
 .rail-toggle {
-  margin-left: auto;
   color: var(--muted);
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
-  padding: 4px;
+  flex: 0 0 auto;
 }
 .rail-toggle:hover {
   color: var(--text);
@@ -398,6 +436,15 @@ kbd {
   border-radius: 50%;
   background: #5f8f5f;
   flex: 0 0 auto;
+  transition:
+    background 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+/* A soft halo draws the eye to the dot only while something is happening. */
+.sb-foot.busy .status-dot,
+.sb-foot.warn .status-dot,
+.sb-foot.err .status-dot {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
 }
 .sb-foot.busy .status-dot {
   background: var(--accent);
@@ -503,14 +550,11 @@ kbd {
   background: rgba(227, 168, 87, 0.12);
 }
 .search-bar {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-}
-.search-bar.open {
-  display: flex;
 }
 .search-bar .ic {
   color: var(--muted);
@@ -542,6 +586,7 @@ kbd {
   position: relative;
   border-bottom: 1px solid rgba(36, 36, 40, 0.55);
   transition: background 0.1s;
+  animation: row-in 0.2s var(--ease);
 }
 .row:hover {
   background: rgba(255, 255, 255, 0.015);
@@ -549,7 +594,9 @@ kbd {
 .row.selected {
   background: var(--sel);
 }
-.row.selected::before {
+/* The accent rail grows in rather than snapping, which reads as a selection
+   change instead of a repaint. */
+.row::before {
   content: "";
   position: absolute;
   left: 0;
@@ -557,6 +604,17 @@ kbd {
   bottom: 0;
   width: 2px;
   background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 0.15s var(--ease);
+}
+.row.selected::before {
+  transform: scaleY(1);
+}
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 .row .dotcol {
   width: 8px;
@@ -667,6 +725,7 @@ kbd {
   color: var(--muted);
   text-align: center;
   padding: 30px;
+  animation: rp-in 0.2s var(--ease);
 }
 .empty .big {
   font-size: 14px;
@@ -692,6 +751,14 @@ kbd {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Remounted per message via {#key}, so opening a message eases in. */
+  animation: rp-in 0.22s var(--ease);
+}
+@keyframes rp-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
 }
 .rp-toolbar {
   display: flex;
@@ -745,6 +812,8 @@ kbd {
   letter-spacing: -0.005em;
   margin: 0 0 14px;
   color: var(--text);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 .rp-meta {
   display: flex;
@@ -997,7 +1066,7 @@ kbd {
 .th-item.active {
   background: var(--sel);
 }
-.th-item.active::before {
+.th-item::before {
   content: "";
   position: absolute;
   left: 0;
@@ -1005,6 +1074,11 @@ kbd {
   bottom: 0;
   width: 2px;
   background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 0.15s var(--ease);
+}
+.th-item.active::before {
+  transform: scaleY(1);
 }
 .th-dot {
   width: 7px;
@@ -1085,6 +1159,8 @@ kbd {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
   padding: 4px;
   z-index: 8;
+  transform-origin: top right;
+  animation: pop 0.12s var(--ease);
 }
 .menu button {
   display: flex;
@@ -1135,6 +1211,8 @@ kbd {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
   padding: 4px;
   z-index: 1;
+  transform-origin: top left;
+  animation: pop 0.12s var(--ease);
 }
 .ctx-item {
   display: flex;
@@ -1201,7 +1279,6 @@ kbd {
 }
 .overlay.open {
   display: flex;
-  animation: fade 0.12s ease-out;
 }
 .overlay .backdrop {
   position: absolute;
@@ -1216,14 +1293,6 @@ kbd {
 .overlay .dialog {
   position: relative;
   z-index: 1;
-}
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 @keyframes pop {
   from {
@@ -1446,6 +1515,8 @@ kbd {
   max-height: 210px;
   overflow-y: auto;
   min-width: 260px;
+  transform-origin: top left;
+  animation: pop 0.12s var(--ease);
 }
 .ac-item {
   display: flex;
@@ -2171,13 +2242,24 @@ a.ext-link:hover {
   }
   .sidebar .label,
   .sidebar .count,
-  .sidebar .sb-section,
   .sidebar .wordmark,
-  .sidebar .rail-toggle,
-  .sidebar .sb-foot span {
+  .sidebar .sb-status-text {
     display: none;
   }
+  /* With the labels gone the section rules become thin dividers so folders
+     and accounts stay visually grouped. */
+  .sb-section {
+    height: 1px;
+    margin: 8px 12px;
+    padding: 0;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .sb-nav {
+    padding: 4px;
+  }
   .sb-head {
+    gap: 4px;
     justify-content: center;
     padding: 12px 0;
   }
@@ -2185,39 +2267,101 @@ a.ext-link:hover {
     justify-content: center;
     padding: 0;
   }
+  .sb-foot {
+    justify-content: center;
+    padding: 9px 0;
+  }
+  .sb-foot .sb-status {
+    justify-content: center;
+  }
+  .sb-retry {
+    display: none;
+  }
   .search-trigger {
     min-width: 0;
+    padding: 0 8px;
   }
   .search-trigger span,
   .search-trigger kbd {
     display: none;
   }
-  .search-trigger {
-    padding: 0 8px;
-  }
 }
 
-/* Desktop rail collapse mirrors the narrow layout but keeps the toggle reachable. */
+/*
+ * Desktop rail collapse mirrors the narrow layout but keeps the toggle
+ * reachable. The column width animates off `data-rail`; the content switches
+ * layouts only once that has settled (`data-rail-content`), otherwise the
+ * icons would snap to the centre of the still-wide column before it shrinks.
+ */
 .app[data-rail="1"] {
   grid-template-columns: 48px 360px minmax(0, 1fr);
 }
-.app[data-rail="1"] .sidebar .label,
-.app[data-rail="1"] .sidebar .count,
-.app[data-rail="1"] .sidebar .sb-section,
-.app[data-rail="1"] .sidebar .wordmark,
-.app[data-rail="1"] .sidebar .sb-foot span {
+.app[data-rail-content="1"] .sidebar .label,
+.app[data-rail-content="1"] .sidebar .count,
+.app[data-rail-content="1"] .sidebar .wordmark,
+.app[data-rail-content="1"] .sidebar .sb-status-text {
   display: none;
 }
-.app[data-rail="1"] .sb-head {
+.app[data-rail-content="1"] .sb-section {
+  height: 1px;
+  margin: 8px 12px;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+.app[data-rail-content="1"] .sb-nav {
+  padding: 4px;
+}
+.app[data-rail-content="1"] .sb-head {
+  gap: 4px;
   justify-content: center;
   padding: 12px 0;
 }
-.app[data-rail="1"] .rail-toggle {
-  margin-left: 0;
-}
-.app[data-rail="1"] .nav-item {
+.app[data-rail-content="1"] .nav-item {
   justify-content: center;
   padding: 0;
+}
+.app[data-rail-content="1"] .sb-foot {
+  justify-content: center;
+  padding: 9px 0;
+}
+.app[data-rail-content="1"] .sb-foot .sb-status {
+  justify-content: center;
+}
+.app[data-rail-content="1"] .sb-retry {
+  display: none;
+}
+
+/* Compact controls dip slightly on press for tactile feedback. Full-width
+   row targets are left out so pressing one does not shift the whole pane. */
+@media (prefers-reduced-motion: no-preference) {
+  :is(
+    .btn,
+    .cbtn,
+    .icon-btn,
+    .rail-toggle,
+    .search-trigger,
+    .filter-chip,
+    .p-item,
+    .ctx-item,
+    .ac-item,
+    .attach-chip,
+    .attach-toggle,
+    .rp-remote-btn,
+    .rp-toolbar button,
+    .rp-tabs button,
+    .viewer-close,
+    .sync-close,
+    .rp-thread-hide,
+    .sb-retry,
+    .sb-status,
+    .compose-head .x,
+    .pane-head .x,
+    .star,
+    .km-change
+  ):not(:disabled):not(.backdrop):not(.menu-backdrop):not(.ctx-backdrop):active {
+    transform: scale(0.96);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2232,7 +2376,9 @@ a.ext-link:hover {
   .overlay .backdrop {
     background: rgba(10, 10, 12, 0.72);
   }
-  .sidebar,
+  .sidebar::before {
+    background: var(--surface);
+  }
   .rp-toolbar {
     background: var(--surface);
   }
@@ -2251,7 +2397,7 @@ a.ext-link:hover {
   .shortcuts,
   .pane,
   .toast,
-  .sidebar,
+  .sidebar::before,
   .rp-toolbar {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -2259,7 +2405,7 @@ a.ext-link:hover {
   .overlay .backdrop {
     background: rgba(10, 10, 12, 0.72);
   }
-  .sidebar,
+  .sidebar::before,
   .rp-toolbar {
     background: var(--surface);
   }

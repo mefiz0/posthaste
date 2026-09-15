@@ -3,6 +3,7 @@
   import { focusTrap } from '../lib/focus';
   import { app, closePalette, commands, moveToFolder, paletteContext } from '../lib/stores.svelte';
   import { groupBySection, queryCommands, type Command } from '../lib/palette';
+  import { overlayFade } from '../lib/transitions';
   import { folderIcon } from '../lib/icons';
   import type { IconName } from '../lib/icons';
   import type { Folder } from '../lib/types';
@@ -66,7 +67,7 @@
   }
 </script>
 
-<div class="overlay open" role="presentation">
+<div class="overlay open" transition:overlayFade role="presentation">
   <button class="backdrop" aria-label="Close command palette" onclick={closePalette}></button>
   <div class="dialog palette" role="dialog" aria-modal="true" aria-label="Command palette" use:focusTrap>
     <div class="palette-input">
