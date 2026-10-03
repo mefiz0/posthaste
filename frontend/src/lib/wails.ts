@@ -517,14 +517,17 @@ const EVENT_NAMES = [
 const OAUTH_COMPLETE_TIMEOUT_MS = 10 * 60 * 1000;
 
 /**
- * True when the page runs inside the Wails webview. The Go shell injects
- * `window._wails.flags` before any page script executes; the npm runtime
- * module never populates that object, so its presence is the reliable signal.
+ * True when the page runs inside the Wails webview. The shell serves the app
+ * over its private `wails://` scheme, which is fixed before any page script
+ * runs, so the protocol is a deterministic signal. Sniffing the injected
+ * `window._wails.flags` instead is racy: the Go shell installs that object
+ * after the page's scripts have already started, so the app could pick the
+ * sample-data mock backend at random.
  */
-export function hasWailsHost(
-  scope: { readonly _wails?: { readonly flags?: unknown } } | undefined,
+export function isWailsHost(
+  scope: { readonly location?: { readonly protocol?: string } } | undefined,
 ): boolean {
-  return scope?._wails?.flags !== undefined;
+  return scope?.location?.protocol === "wails:";
 }
 
 // ---------- the backend ----------

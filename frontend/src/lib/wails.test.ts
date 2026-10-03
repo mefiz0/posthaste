@@ -9,7 +9,7 @@ import type {
   PickedFile as PickedFileBinding,
 } from "../bindings/github.com/mefiz0/posthaste/internal/app/models.js";
 import {
-  hasWailsHost,
+  isWailsHost,
   mapAccount,
   mapDiscoveredConfig,
   mapFolder,
@@ -342,11 +342,13 @@ describe("parseBackendEvent", () => {
   });
 });
 
-describe("hasWailsHost", () => {
-  it("is true only when the shell-injected flags object exists", () => {
-    expect(hasWailsHost({ _wails: { flags: {} } })).toBe(true);
-    expect(hasWailsHost({ _wails: {} })).toBe(false);
-    expect(hasWailsHost({})).toBe(false);
-    expect(hasWailsHost(undefined)).toBe(false);
+describe("isWailsHost", () => {
+  it("is true only for the shell's wails:// scheme", () => {
+    expect(isWailsHost({ location: { protocol: "wails:" } })).toBe(true);
+    expect(isWailsHost({ location: { protocol: "http:" } })).toBe(false);
+    expect(isWailsHost({ location: { protocol: "https:" } })).toBe(false);
+    expect(isWailsHost({ location: {} })).toBe(false);
+    expect(isWailsHost({})).toBe(false);
+    expect(isWailsHost(undefined)).toBe(false);
   });
 });

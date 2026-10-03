@@ -1,0 +1,59 @@
+# Maintainer: Posthaste contributors
+#
+# Local-only package. It builds the working tree this PKGBUILD sits inside
+# rather than a remote tag, so the package reflects exactly what is checked out
+# on the development machine. Build it from this directory with
+# `makepkg -si` (or `task package` from the repo root, then `pacman -U`).
+# When distribution packaging begins, replace the source with a release
+# tarball or git source and add its checksum.
+
+pkgname=posthaste
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Fast, reliable, offline-first desktop email client for Linux'
+arch=('x86_64' 'aarch64')
+url='https://github.com/mefiz0/posthaste'
+license=('MIT')
+depends=('gtk4' 'webkitgtk-6.0')
+makedepends=('go' 'nodejs' 'npm')
+conflicts=('posthaste-bin')
+options=('!lto')
+
+source=()
+sha256sums=()
+
+prepare() {
+  rm -rf "$srcdir/$pkgname"
+  mkdir -p "$srcdir/$pkgname"
+  # Copy the local checkout, skipping VCS data and build outputs that the
+  # package build recreates from scratch.
+  tar -C "$startdir/.." \
+    --exclude='./.git' \
+    --exclude='./bin' \
+    --exclude='./.task' \
+    --exclude='./packaging' \
+    --exclude='./frontend/node_modules' \
+    --exclude='./frontend/dist' \
+    -cf - . | tar -C "$srcdir/$pkgname" -xf -
+}
+
+build() {
+  cd "$srcdir/$pkgname"
+  npm --prefix frontend ci
+  npm --prefix frontend run build
+  # Not "$srcdir/$pkgname": that path is the copied source tree, and go build
+  # would treat an existing directory as a destination rather than a binary.
+  go build -trimpath -o "$srcdir/posthaste.bin" .
+}
+
+package() {
+  install -Dm755 "$srcdir/posthaste.bin" "$pkgdir/usr/bin/posthaste"
+  install -Dm644 "$srcdir/$pkgname/build/linux/org.wails.posthaste.desktop" \
+    "$pkgdir/usr/share/applications/org.wails.posthaste.desktop"
+
+  local size
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "$srcdir/$pkgname/build/linux/icons/hicolor/${size}x${size}/apps/io.posthaste.app.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/io.posthaste.app.png"
+  done
+}

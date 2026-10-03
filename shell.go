@@ -221,6 +221,10 @@ func run() error {
 	})
 	manager.Start(context.Background())
 
+	// mainWindow is captured by the single-instance callback, which only runs
+	// after the first window has been created.
+	var mainWindow *application.WebviewWindow
+
 	instance := application.New(application.Options{
 		Name:        "Posthaste",
 		Description: "A fast, reliable, offline-first email client",
@@ -242,6 +246,19 @@ func run() error {
 		},
 		Linux: application.LinuxOptions{
 			ProgramName: "posthaste",
+		},
+		// A second launch raises the running window instead of starting another
+		// process. Without this, launching while the app is hidden in the tray
+		// spawns a duplicate engine pointed at the same account databases.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "io.posthaste.app",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				if mainWindow == nil {
+					return
+				}
+				mainWindow.Show()
+				mainWindow.Focus()
+			},
 		},
 		OnShutdown: func() {
 			manager.Shutdown()
@@ -267,6 +284,7 @@ func run() error {
 			Icon: appIcon,
 		},
 	})
+	mainWindow = window
 
 	// The UI draws its own contextual menu from the DOM contextmenu event, so
 	// WebKit's built-in menu (Back/Reload/Inspect Element) is suppressed at the

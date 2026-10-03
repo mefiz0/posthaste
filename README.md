@@ -61,6 +61,37 @@ The app shell builds against **GTK4 + WebKitGTK 6.0**, the Wails v3 default
 stack, so no build tags are involved. The `wails3` CLI is built from source by
 `task tools:wails`.
 
+## Installing locally
+
+Packaging is scoped to a local install for now — distribution channels
+(Flatpak, AppImage, AUR) come later. The task runner builds, installs, and can
+remove everything:
+
+```sh
+task install            # build + install under ~/.local
+task uninstall          # remove the binary, icon, and desktop entry
+```
+
+`task install` puts the binary at `~/.local/bin/posthaste`, the icon in
+`~/.local/share/icons/hicolor/`, and a desktop entry in
+`~/.local/share/applications/`. The entry is named `org.wails.posthaste.desktop`
+because that must match the GApplication ID Wails creates for the shell —
+Wayland compositors use it to associate a window with its icon. Its `Exec` is
+written as an absolute path, since `~/.local/bin` is not guaranteed to be on a
+graphical session's `PATH`.
+
+To manage the install through pacman instead, build the local package and
+install it with `pacman -U`:
+
+```sh
+task package            # makepkg -> packaging/posthaste-<ver>-<rel>-<arch>.pkg.tar.zst
+sudo pacman -U packaging/posthaste-*.pkg.tar.zst
+```
+
+`packaging/PKGBUILD` builds the working tree it lives in, so it always reflects
+the checked-out source. After changing the logo, run `task icons` to regenerate
+the committed hicolor set from `build/appicon.png`.
+
 ## Testing
 
 ```sh
@@ -123,8 +154,10 @@ docs/                  product spec, tech specs, implementation plan
   filenames, and tokens are filtered where the value is captured, so there is
   no path for them to reach the log file. Accounts are identified by internal
   ID in logs, never by address.
-- Crash reporting does not exist yet; when it arrives it will be opt-in, off
-  by default, and held to the same scrubbing rules.
+- **Crash reporting is opt-in and off by default.** When enabled, a local
+  report contains only the panic value, stack, OS, architecture, and app
+  version — scrubbed at capture, never message content, and never sent
+  anywhere automatically.
 
 ## License
 

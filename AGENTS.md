@@ -63,6 +63,8 @@ mise.toml                   pinned toolchain (go, task, node, golangci-lint)
 .golangci.yml               Go lint config
 build/config.yml            Wails build metadata (product name, identifier, version)
 build/appicon.png           app icon source
+build/linux/                local-install desktop entry + committed hicolor icon set
+packaging/PKGBUILD          local-only pacman package (builds the working tree)
 migrations/*.sql            goose migrations, embedded with go:embed
 internal/
   settings/                 global (non-account) config: XDG paths, settings.toml load/save
@@ -132,6 +134,13 @@ ones:
 - `task lint` — `golangci-lint run` + `npm run check`.
 - `task format` — `gofmt`/`golangci-lint fmt` + `npm run format`.
 - `task infra:up` / `task infra:down` — start/stop the mail-server harness.
+- `task install` — build and install the binary, icon, and desktop entry under
+  `~/.local` (`PREFIX` overrides the prefix).
+- `task uninstall` — remove what `task install` wrote.
+- `task icons` — regenerate the committed Linux hicolor icon set from
+  `build/appicon.png` (needs ImageMagick; only after the logo changes).
+- `task package` — build a pacman package from the local tree via
+  `packaging/PKGBUILD`, which installs the working tree it lives in.
 - `task clean` — remove `bin/`, `frontend/dist`, build caches.
 
 `go test ./...` must pass with **no network and no Docker** — that is the fast

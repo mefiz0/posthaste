@@ -1,21 +1,16 @@
 import { createMockBackend } from "./mock";
-import { hasWailsHost, WailsBackend } from "./wails";
+import { isWailsHost, WailsBackend } from "./wails";
 import type { Backend } from "./backend";
 import { AppService } from "../bindings/github.com/mefiz0/posthaste/internal/app/index.js";
 
 /**
  * Where the app is running. "wails" is the real desktop engine; "mock" is the
- * in-browser sample-data backend used by `npm run dev`. Exposed for the debug
- * badge and for the few flows whose presentation differs (the mock cannot
- * open a real browser for OAuth).
+ * in-browser sample-data backend used when the Vite URL is opened in a plain
+ * browser. Exposed for the debug badge and for the few flows whose
+ * presentation differs (the mock cannot open a real browser for OAuth).
  */
-export const backendKind: "wails" | "mock" = hasWailsHost(
-  typeof window === "undefined"
-    ? undefined
-    : (window as typeof window & { _wails?: { flags?: unknown } }),
-)
-  ? "wails"
-  : "mock";
+export const backendKind: "wails" | "mock" =
+  typeof window === "undefined" ? "mock" : isWailsHost(window) ? "wails" : "mock";
 
 function selectBackend(): Backend {
   if (backendKind === "wails") return new WailsBackend();

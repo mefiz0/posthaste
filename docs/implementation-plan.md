@@ -129,10 +129,10 @@ Scope for now is a working install on the development machine only. Distribution
 channels (Flatpak, AppImage, AUR) and the release gates that go with them are
 deferred until after local daily use.
 
-- [ ] Add an `install` task that builds the binary and installs it, the icon, and the desktop entry under `~/.local`.
-- [ ] Author a local `PKGBUILD` so the app installs and updates through `makepkg`/pacman on Arch.
-- [ ] Finalize the app icon, desktop entry, and metadata for the local install.
-- [ ] Verify the installed app launches from the desktop environment (keyring, tray, notifications, and HTML rendering) on the target machine.
+- [x] Add an `install` task that builds the binary and installs it, the icon, and the desktop entry under `~/.local`.
+- [x] Author a local `PKGBUILD` so the app installs and updates through `makepkg`/pacman on Arch.
+- [x] Finalize the app icon, desktop entry, and metadata for the local install.
+- [x] Verify the installed app launches from the desktop environment (keyring, tray, notifications, and HTML rendering) on the target machine.
 
 **Exit:** the app is installable and launchable locally from the desktop environment with a working icon, tray, notifications, and keyring — no distribution channels required.
 
@@ -154,7 +154,7 @@ deferred until after local daily use.
 ### Documentation
 - [x] Maintain `AGENTS.md` with build/test/lint commands as they stabilize.
 - [x] Maintain a user-facing README and a contributor setup guide.
-- [ ] Document the local install process once Phase 7 lands.
+- [x] Document the local install process once Phase 7 lands.
 
 ### Ongoing Discipline
 - [x] Keep every dependency pinned; revisit the Wails version at each beta/RC/GA release.

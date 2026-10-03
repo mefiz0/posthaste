@@ -5,10 +5,17 @@ version: '3'
 
 vars:
   APP_NAME: posthaste
+  APP_ID: io.posthaste.app
+  # The desktop entry basename must equal the GApplication ID Wails creates for
+  # the shell, so Wayland compositors can associate the window with the entry.
+  DESKTOP_ID: org.wails.posthaste
   BIN_DIR: bin
   WAILS_VERSION: v3.0.0-beta.22
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   BINDINGS_DIR: frontend/src/bindings
+  # Local install prefix; override on the command line for a system install.
+  PREFIX: '{{.PREFIX | default (printf "%s/.local" (env "HOME"))}}'
+  ICON_SIZES: 16 24 32 48 64 128 256 512
 
 tasks:
   default:
@@ -157,12 +164,68 @@ tasks:
     cmds:
       - docker compose down -v --remove-orphans
 
-  # ----- Packaging / clean (packaging proper lands in Phase 7) -------------------
+  # ----- Install / packaging ----------------------------------------------------
+
+  # Regenerates the committed hicolor icon set from the 1024px source. Only
+  # needed after the logo changes; `install` copies the committed set so it
+  # never depends on ImageMagick being present.
+  icons:
+    desc: Regenerate the Linux hicolor icon set from build/appicon.png
+    sources:
+      - build/appicon.png
+    generates:
+      - build/linux/icons/**/*
+    cmds:
+      - |
+        for size in {{.ICON_SIZES}}; do
+          dir="build/linux/icons/hicolor/${size}x${size}/apps"
+          mkdir -p "$dir"
+          magick build/appicon.png -resize "${size}x${size}" -strip "PNG32:$dir/{{.APP_ID}}.png"
+        done
+
+  install:
+    desc: Build and install the binary, icon, and desktop entry under ~/.local (override with PREFIX)
+    deps: [build]
+    cmds:
+      - install -Dm755 {{.BIN_DIR}}/{{.APP_NAME}} {{.PREFIX}}/bin/{{.APP_NAME}}
+      - |
+        for size in {{.ICON_SIZES}}; do
+          dir="{{.PREFIX}}/share/icons/hicolor/${size}x${size}/apps"
+          mkdir -p "$dir"
+          install -Dm644 "build/linux/icons/hicolor/${size}x${size}/apps/{{.APP_ID}}.png" "$dir/{{.APP_ID}}.png"
+        done
+      # Point the launcher at the absolute binary path: an XDG data install
+      # under ~/.local/bin is not guaranteed to be on the graphical session's
+      # PATH. Write the corrected entry to a hidden temp file and rename it
+      # into place, so the destination is never briefly visible with the
+      # unmodified `Exec` (desktop shells watch this directory and would
+      # otherwise cache the bare, unresolvable command).
+      - |
+        mkdir -p "{{.PREFIX}}/share/applications"
+        tmp="$(mktemp "{{.PREFIX}}/share/applications/.posthaste-desktop.XXXXXX")"
+        sed 's|^Exec={{.APP_NAME}}$|Exec={{.PREFIX}}/bin/{{.APP_NAME}}|' build/linux/{{.DESKTOP_ID}}.desktop > "$tmp"
+        chmod 644 "$tmp"
+        mv -f "$tmp" "{{.PREFIX}}/share/applications/{{.DESKTOP_ID}}.desktop"
+      - update-desktop-database {{.PREFIX}}/share/applications >/dev/null 2>&1 || true
+      - gtk-update-icon-cache -f -t {{.PREFIX}}/share/icons/hicolor >/dev/null 2>&1 || true
+      - 'echo "Installed {{.APP_NAME}} to {{.PREFIX}}/bin/{{.APP_NAME}}; launch it from the app menu or run {{.PREFIX}}/bin/{{.APP_NAME}}."'
+
+  uninstall:
+    desc: Remove the locally installed binary, icon, and desktop entry
+    cmds:
+      - rm -f {{.PREFIX}}/bin/{{.APP_NAME}}
+      - rm -f {{.PREFIX}}/share/applications/{{.DESKTOP_ID}}.desktop
+      - |
+        for size in {{.ICON_SIZES}}; do
+          rm -f "{{.PREFIX}}/share/icons/hicolor/${size}x${size}/apps/{{.APP_ID}}.png"
+        done
+      - update-desktop-database {{.PREFIX}}/share/applications >/dev/null 2>&1 || true
+      - gtk-update-icon-cache -f -t {{.PREFIX}}/share/icons/hicolor >/dev/null 2>&1 || true
 
   package:
-    desc: Packaging (Flatpak/AppImage/AUR) lands in Phase 7
+    desc: Build a pacman package from the local tree via packaging/PKGBUILD
     cmds:
-      - 'echo "Packaging is Phase 7; use `task build` for now."'
+      - makepkg --force --cleanbuild --dir packaging -p PKGBUILD
 
   clean:
     desc: Remove build outputs and caches

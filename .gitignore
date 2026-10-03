@@ -18,6 +18,11 @@ coverage.out
 # task build cache
 .task/
 
+# makepkg working tree and packages (packaging/PKGBUILD is local-only)
+packaging/src/
+packaging/pkg/
+*.pkg.tar.zst
+
 # Editor / OS
 .DS_Store
 *.swp
