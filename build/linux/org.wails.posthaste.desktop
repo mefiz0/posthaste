@@ -1,0 +1,18 @@
+# The file name must match the GApplication ID Wails creates for the shell
+# (org.wails.<lowercased app name>). Wayland compositors resolve a window's
+# icon and grouping by looking up a desktop file with exactly that ID, so the
+# basename here is not cosmetic. The icon the user sees is named separately by
+# the Icon key.
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Posthaste
+GenericName=Email Client
+Comment=Fast, reliable, offline-first desktop email client for Linux
+Exec=posthaste
+Icon=io.posthaste.app
+Terminal=false
+Categories=Network;Email;
+Keywords=email;mail;imap;smtp;
+StartupNotify=false
+StartupWMClass=posthaste
